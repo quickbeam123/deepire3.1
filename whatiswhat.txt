@@ -1,0 +1,12 @@
+Deepire3
+- was the third attempt to do clause selection in Vampire using clause derivation features and recursive (tree) neural networks
+- previous two were done with Karel, but left (so far) unfinished
+- number 3 I hacked alone before AITP2020 in September 2020
+- it relies on a branch deepire3 in the Vampire repo
+- and uses Pytorch1.6
+
+Deepire3.1 is meant to be polishing of Deepire3
+- to serve as a basis of a reasonable publication
+- to perform ablations of various kinds, not to rely on intuitions only
+- to also support AVATAR, and non-discount saturation algorithms (including LRS)
+
