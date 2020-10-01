@@ -28,7 +28,7 @@ import numpy as np
 
 import inf_common as IC
 
-NUMPROCESSES = 20
+NUMPROCESSES = 1
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -115,7 +115,7 @@ if __name__ == "__main__":
   
   start_time = time.time()
 
-  EPOCHS_BEFORE_VALIDATION = 1
+  EPOCHS_BEFORE_VALIDATION = 10
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     print()
     print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
-    name = sys.argv[3]+"/models/{}-epoch{}.pt".format(sys.argv[3][:-2],epoch)
+    name = "{}-epoch{}.pt".format(sys.argv[3][:-3],epoch)
     print("Saving model to:",name)
     torch.save(master_parts,name)
 
