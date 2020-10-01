@@ -18,13 +18,13 @@ import sys,random
 
 # a hyper-parameter of the future model
 EMBED_SIZE = 55
-DROPOUT = 0.1
+SWAPOUT = 0.0
 NONLIN = torch.nn.Tanh() # torch.nn.ReLU()
 
 LEARN_RATE = 0.0005
 
-POS_BIAS = 1.0
-NEG_BIAS = 1.0
+POS_BIAS = 0.85
+NEG_BIAS = 0.15
 
 class Embed(torch.nn.Module):
   weight: Tensor
@@ -45,21 +45,24 @@ class CatAndNonLinear(torch.nn.Module):
   
   def __init__(self, dim : int, arit: int):
     super(CatAndNonLinear, self).__init__()
-    self.big = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
+    self.catter = torch.nn.Linear(arit*dim,dim)
+    # self.big = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
     self.nonlin = NONLIN
-    self.small = torch.nn.Linear((arit+1)*dim//2,dim)
+    # self.small = torch.nn.Linear((arit+1)*dim//2,dim)
 
   def forward(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
-    x = self.big(x)
+    x = self.catter(x)
     x = self.nonlin(x)
-    x = self.small(x)
+    # x = self.big(x)
+    # x = self.nonlin(x)
+    # x = self.small(x)
     return x
 
 def get_initial_model(init_hist,deriv_hist):
   init_embeds = torch.nn.ModuleDict()
   assert(-1 in init_hist) # to have conjecture embedding
-  assert(0 in init_hist) # to have user-fla embedding
+  assert(0 in init_hist)  # to have user-fla embedding
   for i in init_hist:
     init_embeds[str(i)] = Embed(EMBED_SIZE)
 
@@ -71,11 +74,14 @@ def get_initial_model(init_hist,deriv_hist):
   deriv_mlps = torch.nn.ModuleDict()
   for (rule,arit) in deriv_hist:
     deriv_mlps[str(rule)] = CatAndNonLinear(EMBED_SIZE,arit)
-
+  
+  '''
   eval_net = torch.nn.Sequential(
          torch.nn.Linear(EMBED_SIZE,EMBED_SIZE//2),
          NONLIN,
          torch.nn.Linear(EMBED_SIZE//2,1))
+  '''
+  eval_net = torch.nn.Linear(EMBED_SIZE,1)
 
   return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
 
@@ -241,7 +247,7 @@ class LearningModel(torch.nn.Module):
     loss = torch.zeros(1)
     
     for id, thax in self.init:
-      if random.random() < DROPOUT:
+      if SWAPOUT > 0.0 and random.random() < SWAPOUT:
         embed = self.init_embeds[str(0)]()
       else:
         embed = self.init_embeds[str(thax)]()
@@ -255,7 +261,7 @@ class LearningModel(torch.nn.Module):
       
       par_embeds = [store[par] for par in self.pars[id]]
       
-      if random.random() < DROPOUT:
+      if SWAPOUT > 0.0 and random.random() < SWAPOUT:
         arit = len(self.pars[id])
         embed = self.deriv_mlps[str(arit)](par_embeds)
       else:
@@ -267,6 +273,18 @@ class LearningModel(torch.nn.Module):
 
     return (loss,self.posOK/self.posTot if self.posTot else 1.0,self.negOK/self.negTot if self.negTot else 1.0)
 
+def get_ancestors(seed,pars):
+  ancestors = set()
+  todo = [seed]
+  while todo:
+    cur = todo.pop()
+    if cur not in ancestors:
+      ancestors.add(cur)
+      if cur in pars:
+        for par in pars[cur]:
+          todo.append(par)
+  return ancestors
+
 def load_one(filename):
   print("Loading",filename)
 
@@ -274,13 +292,12 @@ def load_one(filename):
   deriv : List[Tuple[int, Tuple[int, int, int, int, int]]] = []
   pars : Dict[int, List[int]] = {}
   selec = set()
+  
   empty = None
-
-  depths = defaultdict(int)
-  max_depth = 0
 
   with open(filename,'r') as f:
     for line in f:
+      # print(line)
       if line.startswith("% Refutation found."):
         break
       if line.startswith("% # SZS output start Saturation."):
@@ -292,46 +309,66 @@ def load_one(filename):
         assert(val[0] == 1)
         init.append((val[1],val[2:]))
       elif spl[0] == "d:":
+        # d: [2,cl_id,age,weight,len,num_splits,rule,par1,par2,...]
         val = eval(spl[1])
         assert(val[0] == 2)
         deriv.append((val[1],tuple(val[2:7])))
         id = val[1]
-        ps = val[7:]
-        pars[id] = ps
-        depth = max([depths[p] for p in ps])+1
-        depths[id] = depth
-        if depth > max_depth:
-          max_depth = depth
-        
+        pars[id] = val[7:]
+      elif spl[0] == "a:":
+        # a: [3,cl_id,age,weight,len,causal_parent or -1]
+        # treat it as deriv (with one parent):
+        val = eval(spl[1])
+        assert(val[0] == 3)
+        deriv.append((val[1],(val[2],val[3],val[4],1,666))) # 1 for num_splits, 666 for rule
+        id = val[1]
+        pars[id] = [val[-1]]
       elif spl[0] == "s:":
         selec.add(int(spl[1]))
       elif spl[0] == "r:":
-        pass # ignore for now
+        pass # ingored for now
       elif spl[0] == "e:":
         empty = int(spl[1])
-
+      elif spl[0] == "f:":
+        # fake one more derived clause ("-1") into parents
+        empty = -1
+        pars[empty] = map(int,spl[1].split(","))
+  
   assert(empty is not None)
 
-  good = set() # those clauses that ended up in the proof
-  todo = [empty]
-  while todo:
-    cur = todo.pop()
-    if cur not in good:
-      good.add(cur)
-      if cur in pars:
-        for par in pars[cur]:
-          todo.append(par)
-  del todo
+  # NOTE: there are some things that should/could be done differently in the future
+  #
+  # *) in non-discount saturation algorithms, not every selection which participates in
+  #  a proof needs to be good one. If the said selected clause does not participate
+  #  in a generating inference necessary for the proof, it could have stayed "passive"
+  #
+  # *) for AVATAR one could consider learning from all the empty clauses rather than just
+  #  the ones connected to "f"; it would then also become relevant that clauses get
+  #  "retracted" from active as the model changes, so a selection long time ago,
+  #  that got retracted in the meantime anyway, should not be considered bad
+  #  for the current empty clause
+  #  Note, however, that when learning from more than one empty clause indepentently,
+  #  we would start getting clauses which are both good and bad; if we were to call
+  #  all of these good anyway (because we only ever want to err on "the other side")
+  #  this whole considiration becomes moot
 
+  good = get_ancestors(empty,pars)
   good = good & selec # proof clauses that were never selected don't count
 
+  # TODO: consider learning only from hard problems!
+  # E.g., solveable by a stupid strategy (age-only), get filtered out
+  '''
   if len(selec) < 30:
     print("Skipping, is too easy.")
     return None
+  '''
 
+  # Don't be afraid of depth!
+  '''
   if max_depth > 100:
     print("Skipping, is too deep.")
     return None
+  '''
 
   print("init: {}, deriv: {}, select: {}, good: {}".format(len(init),len(deriv),len(selec),len(good)))
 
@@ -370,7 +407,7 @@ def prepare_hists(prob_data):
   return (init_hist,deriv_hist)
 
 def normalize_prob_data(prob_data):
-  # 1) it's better to have then in a list (for random.choice)
+  # 1) it's better to have them in a list (for random.choice)
   # 2) it's better to just keep the relevant information (more compact memory footprint)
   # 3) it's better to disambiguate clause indices, so that any union of problems will make sense as on big graph
   
@@ -409,6 +446,8 @@ def normalize_prob_data(prob_data):
   return prob_data_list
 
 def big_data_prob(prob_data_list):
+  # compute the big graph union - currently unused - was too big to use at once
+  
   # print(prob_data_list)
 
   big_init = list(itertools.chain.from_iterable(init for probname, (init,deriv,pars,selec,good) in prob_data_list ))

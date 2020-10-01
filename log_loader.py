@@ -26,7 +26,9 @@ if __name__ == "__main__":
   # - save it to "data_hist.pt"
   # normalize the training data and save that to "training_data.pt"
   #
-  # To be called as in: ./log_loader.py data_hist.pt training_data.pt enigma_smt_447/smt4vamp_deepire3_5s_d4858_fastBase0_s4k-on/*.log (an "-s4k on" run of vampire, so far without avatar)
+  # actually, all the logs to read need to be saved in a file an passed as sys.argv[3]
+  #
+  # To be called as in: ./log_loader.py data_hist.pt training_data.pt *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
 
   prob_data = {} # probname -> (init,deriv,pars,selec,good)
   
@@ -49,7 +51,7 @@ if __name__ == "__main__":
   print()
 
   # NORMALIZE PROBLEM DATA:
-  # 1) it's better to have then in a list (for random.choice)
+  # 1) it's better to have them in a list (for random.choice)
   # 2) it's better to disambiguate clause indices, so that any union of problems will make sense as on big graph
   prob_data_list = IC.normalize_prob_data(prob_data)
 
