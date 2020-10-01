@@ -24,15 +24,15 @@ if __name__ == "__main__":
   # Load a set of logs, passed as arguments, each will become a "training example tree"
   # Scan the set and create a histogram (to learn which initial and derivational networks will be needed; including the "dropout" defaults)
   # - save it to "data_hist.pt"
-  # normalize the training data and save that to "training_data.pt"
+  # normalize the training data and save that to "training_data.pt" / "validation_data.pt" using a 80:20 split
   #
   # actually, all the logs to read need to be saved in a file an passed as sys.argv[3]
   #
-  # To be called as in: ./log_loader.py data_hist.pt training_data.pt *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
+  # To be called as in: ./log_loader.py data_hist.pt training_data.pt validation_data.pt *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
 
   prob_data = {} # probname -> (init,deriv,pars,selec,good)
   
-  with open(sys.argv[3],"r") as f:
+  with open(sys.argv[4],"r") as f:
     for line in f:
       probname = line[:-1]
       probdata = IC.load_one(probname)
@@ -54,8 +54,15 @@ if __name__ == "__main__":
   # 1) it's better to have them in a list (for random.choice)
   # 2) it's better to disambiguate clause indices, so that any union of problems will make sense as on big graph
   prob_data_list = IC.normalize_prob_data(prob_data)
-
   print("prob_data_list normalized")
-  print("Saving prob_data_list to",sys.argv[2])
-  torch.save(prob_data_list, sys.argv[2])
+
+  random.shuffle(prob_data_list)
+  spl = int(len(prob_data_list) * 0.8)
+  print("shuffled and split at idx",spl,"out of",len(prob_data_list))
+
+  print("Saving training part to",sys.argv[2])
+  torch.save(prob_data_list[:spl], sys.argv[2])
+  print("Saving testing part to",sys.argv[3])
+  torch.save(prob_data_list[spl:], sys.argv[3])
+
   print("Done")
