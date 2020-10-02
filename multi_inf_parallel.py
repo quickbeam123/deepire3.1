@@ -109,8 +109,10 @@ if __name__ == "__main__":
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name)
 
+  epoch = 0
+
   # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
-  model_name = "model-epoch0.pt"
+  model_name = "{}/model-epoch{}.pt".format(sys.argv[1],epoch)
   torch.save(master_parts,model_name)
 
   parts_copies = [] # have as many copies as processes; they are somehow shared among the processes via Queue, so only one process should touch one at a time
@@ -130,7 +132,7 @@ if __name__ == "__main__":
   validation_statistics = np.tile([1.0,0.0,0.0],(len(valid_data_list),1))
 
   optimizer = torch.optim.Adam(master_parts.parameters(), lr=IC.LEARN_RATE)
-  epoch = 0
+
   
   times = []
   train_losses = []
@@ -182,9 +184,9 @@ if __name__ == "__main__":
 
     print()
     print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
-    name = "model-epoch{}.pt".format(epoch)
-    print("Saving model to:",name)
-    torch.save(master_parts,name)
+    model_name = "{}/model-epoch{}.pt".format(sys.argv[1],epoch)
+    print("Saving model to:",model_name)
+    torch.save(master_parts,model_name)
 
     (loss,posRate,negRate) = np.mean(train_statistics,axis=0)
     print("Training stats:",loss,posRate,negRate,flush=True)
@@ -210,9 +212,6 @@ if __name__ == "__main__":
 
       (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
-
-      copy_grads_back_from_param(master_parts,his_parts)
-      optimizer.step()
 
       print("Job finished at on problem",idx,flush=True)
       print("Local:",loss,posRate,negRate)
