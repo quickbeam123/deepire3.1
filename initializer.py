@@ -30,7 +30,6 @@ if __name__ == "__main__":
 
   model0 = IC.get_initial_model(init_hist,deriv_hist)
 
-  model_name = sys.argv[2]+"_{}_{}.pt".format(IC.EMBED_SIZE,str(IC.NONLIN)[:4])
+  model_name = sys.argv[2]+IC.name_initial_model_suffix()
   torch.save(model0,model_name)
   print("New model saved to",model_name)
-

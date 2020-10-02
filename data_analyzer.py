@@ -21,20 +21,24 @@ if __name__ == "__main__":
   # 1) conj, user_ax, theory_ax_kind in the leaves
   # 2) what inference leads to this in the tree nodes
   #
-  # To be called as in: ./data_analyzer.py data_hist.pt
+  # To be called as in: ./data_analyzer.py training_data.pt
 
-  prob_data = torch.load(sys.argv[1]) # probname -> (init,deriv,pars,selec,good)
-
+  prob_data_list = torch.load(sys.argv[1]) # [ probname, (init,deriv,pars,selec,good)]
+  
   init_len_hist = defaultdict(int)
   sel_len_hist = defaultdict(int)
   max_depth_hist = defaultdict(int)
-  for probname,(init,deriv,pars,selec,good) in prob_data:
+  for probname,(init,deriv,pars,selec,good) in prob_data_list:
     init_len_hist[len(init)] += 1
     sel_len_hist[len(selec)] += 1
     depths = defaultdict(int)
     max_depth = 0
-    print(probname,len(init),len(deriv),len(selec),len(good))
+    print(probname,len(init),len(deriv),len(pars),len(selec),len(good))
     for id,ps in sorted(pars.items()):
+      if not ps: # there
+        print(id)
+        continue
+      
       depth = max([depths[p] for p in ps])+1
       depths[id] = depth
       # print(id,ps,depth)

@@ -26,9 +26,11 @@ import sys,random,itertools
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 import inf_common as IC
 
-NUMPROCESSES = 1
+NUMPROCESSES = 50
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -69,8 +71,8 @@ def eval_and_or_learn_on_one(myparts,data,training):
 
 def worker(q_in, q_out):
   while True:
-    # print("Get by",os.getpid())
     (idx,myparts,data,training) = q_in.get()
+    print("Child",os.getpid(),"has",idx)
     (loss,posRate,negRate,myparts) = eval_and_or_learn_on_one(myparts,data,training)
     q_out.put((idx,loss,posRate,negRate,myparts))
 
@@ -84,19 +86,36 @@ if __name__ == "__main__":
   # Learn in parallel using a Pool of processes, or something similar
   #
   # probably needs to be run with "ulimit -Sn 3000" or something large
-  # To be called as in: ./multi_inf_parallel.py smt4vamp_defaultStrat/training_data.pt smt4vamp_defaultStrat/validation_data.pt smt4vamp_defaultStrat/model0_55_Tanh.pt
+  #
+  # To be called as in: ./multi_inf_parallel.py <folder> <initial-model>
+  #
+  # it expects <folder> to contain "training_data.pt" and "validation_data.pt"
+  # (and maybe also "data_hist.pt")
+  # if <initial-model> is not specified,
+  # it creates a new one in <folder> using the same naming scheme as initializer.py
+  
+  train_data_list = torch.load("{}/training_data.pt".format(sys.argv[1]))
+  print("Loaded train data:",len(train_data_list))
+  valid_data_list = torch.load("{}/validation_data.pt".format(sys.argv[1]))
+  print("Loaded valid data:",len(valid_data_list))
+  
+  if len(sys.argv) >= 3:
+    master_parts = torch.load(sys.argv[2])
+    print("Loaded model parts",sys.argv[2])
+  else:
+    init_hist,deriv_hist = torch.load("{}/data_hist.pt".format(sys.argv[1]))
+    master_parts = IC.get_initial_model(init_hist,deriv_hist)
+    model_name = "{}/initial{}".format(sys.argv[1],IC.name_initial_model_suffix())
+    torch.save(master_parts,model_name)
+    print("Created model parts and saved to",model_name)
 
-  train_data_list = torch.load(sys.argv[1])
-  print("Loaded train data",sys.argv[1],len(train_data_list))
-  valid_data_list = torch.load(sys.argv[2])
-  print("Loaded valid data",sys.argv[2],len(valid_data_list))
+  # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
+  model_name = "model-epoch0.pt"
+  torch.save(master_parts,model_name)
 
-  master_parts = torch.load(sys.argv[3])
   parts_copies = [] # have as many copies as processes; they are somehow shared among the processes via Queue, so only one process should touch one at a time
   for i in range(NUMPROCESSES):
-    parts_copies.append(torch.load(sys.argv[3])) # currently, don't know how to reliably deep-copy in memory (with pickling, all seems fine)
-  
-  print("Loaded model parts",sys.argv[3])
+    parts_copies.append(torch.load(model_name)) # currently, don't know how to reliably deep-copy in memory (with pickling, all seems fine)
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
@@ -113,12 +132,22 @@ if __name__ == "__main__":
   optimizer = torch.optim.Adam(master_parts.parameters(), lr=IC.LEARN_RATE)
   epoch = 0
   
+  times = []
+  train_losses = []
+  train_posrates = []
+  train_negrates = []
+  valid_losses = []
+  valid_posrates = []
+  valid_negrates = []
+  
   start_time = time.time()
 
-  EPOCHS_BEFORE_VALIDATION = 10
+  EPOCHS_BEFORE_VALIDATION = 1
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
+    
+    times.append(epoch)
     
     feed_sequence = []
     for _ in range(EPOCHS_BEFORE_VALIDATION):
@@ -147,19 +176,23 @@ if __name__ == "__main__":
       copy_grads_back_from_param(master_parts,his_parts)
       optimizer.step()
 
-      print("Job finished at on problem",idx)
+      print("Job finished at on problem",idx,flush=True)
       print("Local:",loss,posRate,negRate)
       train_statistics[idx] = (loss,posRate,negRate)
 
     print()
     print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
-    name = "{}-epoch{}.pt".format(sys.argv[3][:-3],epoch)
+    name = "model-epoch{}.pt".format(epoch)
     print("Saving model to:",name)
     torch.save(master_parts,name)
 
     (loss,posRate,negRate) = np.mean(train_statistics,axis=0)
     print("Training stats:",loss,posRate,negRate,flush=True)
     print("Validating...")
+    
+    train_losses.append(loss)
+    train_posrates.append(posRate)
+    train_negrates.append(negRate)
 
     feed_sequence = list(range(len(valid_data_list)))
     while feed_sequence or len(parts_copies) < NUMPROCESSES:
@@ -181,11 +214,45 @@ if __name__ == "__main__":
       copy_grads_back_from_param(master_parts,his_parts)
       optimizer.step()
 
-      print("Job finished at on problem",idx)
+      print("Job finished at on problem",idx,flush=True)
       print("Local:",loss,posRate,negRate)
       validation_statistics[idx] = (loss,posRate,negRate)
 
     (loss,posRate,negRate) = np.mean(validation_statistics,axis=0)
     print("(Multi)-epoch",epoch,"validation finished at",time.time() - start_time)
     print("Validation stats:",loss,posRate,negRate,flush=True)
+
+    valid_losses.append(loss)
+    valid_posrates.append(posRate)
+    valid_negrates.append(negRate)
+
+    # plotting
+    fig, ax1 = plt.subplots()
+    
+    color = 'tab:red'
+    ax1.set_xlabel('time (epochs)')
+    ax1.set_ylabel('loss', color=color)
+    tl, = ax1.plot(times, train_losses, "--", linewidth = 1, label = "train_loss", color=color)
+    vl, = ax1.plot(times, valid_losses, "-", linewidth = 1,label = "valid_loss", color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('pos/neg-rate', color=color)  # we already handled the x-label with ax1
+    
+    tpr, = ax2.plot(times, train_posrates, "--", label = "train_posrate", color = "blue")
+    tnr, = ax2.plot(times, train_negrates, "--", label = "train_negrate", color = "cyan")
+    vpr, = ax2.plot(times, valid_posrates, "-", label = "valid_posrate", color = "blue")
+    vnr, = ax2.plot(times, valid_negrates, "-", label = "valid_negrate", color = "cyan")
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    
+    plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='best')
+    
+    plt.savefig("plot.png",dpi=250)
+
+
+
 

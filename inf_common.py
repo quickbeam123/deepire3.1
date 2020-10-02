@@ -16,12 +16,37 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import sys,random
 
+from enum import Enum
+
+# MODEL PARAMS:
+
 # a hyper-parameter of the future model
-EMBED_SIZE = 55
-SWAPOUT = 0.0
+EMBED_SIZE = 56
 NONLIN = torch.nn.Tanh() # torch.nn.ReLU()
 
-LEARN_RATE = 0.0005
+class CatLayerKind(Enum):
+  SMALL = 1
+  BIGGER = 2  # as used at AITP
+  DOUBLE_NONLIN = 3  # seems to make more sense
+
+CAT_LAYER = CatLayerKind.BIGGER
+
+class EvalLayerKind(Enum):
+  LINEAR = 1
+  NONLIN = 2
+
+EVAL_LAYER = EvalLayerKind.NONLIN
+
+class LayerNorm(Enum):
+  OFF = 1
+  ON = 2
+
+LAYER_NORM = LayerNorm.OFF
+
+# LEARNING PARAMS:
+
+SWAPOUT = 0.0
+LEARN_RATE = 0.001
 
 POS_BIAS = 0.85
 NEG_BIAS = 0.15
@@ -45,18 +70,25 @@ class CatAndNonLinear(torch.nn.Module):
   
   def __init__(self, dim : int, arit: int):
     super(CatAndNonLinear, self).__init__()
-    self.catter = torch.nn.Linear(arit*dim,dim)
-    # self.big = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
-    self.nonlin = NONLIN
-    # self.small = torch.nn.Linear((arit+1)*dim//2,dim)
+    if CAT_LAYER == CatLayerKind.SMALL:
+      self.catter = torch.nn.Linear(arit*dim,dim)
+    else: # for BIGGER and DOUBLE_NONLIN
+      self.big = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
+      self.small = torch.nn.Linear((arit+1)*dim//2,dim)
 
   def forward(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
-    x = self.catter(x)
-    x = self.nonlin(x)
-    # x = self.big(x)
-    # x = self.nonlin(x)
-    # x = self.small(x)
+    if CAT_LAYER == CatLayerKind.SMALL:
+      x = self.catter(x)
+      x = NONLIN(x)
+    else: # for BIGGER and DOUBLE_NONLIN
+      x = self.big(x)
+      x = NONLIN(x)
+      x = self.small(x)
+
+    if CAT_LAYER == CatLayerKind.DOUBLE_NONLIN:
+      x = NONLIN(x)
+
     return x
 
 def get_initial_model(init_hist,deriv_hist):
@@ -75,15 +107,18 @@ def get_initial_model(init_hist,deriv_hist):
   for (rule,arit) in deriv_hist:
     deriv_mlps[str(rule)] = CatAndNonLinear(EMBED_SIZE,arit)
   
-  '''
-  eval_net = torch.nn.Sequential(
+  if EVAL_LAYER == EvalLayerKind.LINEAR:
+    eval_net = torch.nn.Linear(EMBED_SIZE,1)
+  else:
+    eval_net = torch.nn.Sequential(
          torch.nn.Linear(EMBED_SIZE,EMBED_SIZE//2),
          NONLIN,
          torch.nn.Linear(EMBED_SIZE//2,1))
-  '''
-  eval_net = torch.nn.Linear(EMBED_SIZE,1)
 
   return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
+
+def name_initial_model_suffix():
+  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}.pt".format(EMBED_SIZE,str(NONLIN)[:4],CAT_LAYER.name,EVAL_LAYER.name,LAYER_NORM.name)
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -357,11 +392,9 @@ def load_one(filename):
 
   # TODO: consider learning only from hard problems!
   # E.g., solveable by a stupid strategy (age-only), get filtered out
-  '''
-  if len(selec) < 30:
-    print("Skipping, is too easy.")
+  if not selec or not good:
+    print("Skipping, degenerate.")
     return None
-  '''
 
   # Don't be afraid of depth!
   '''
