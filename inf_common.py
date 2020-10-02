@@ -21,7 +21,7 @@ from enum import Enum
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 56
+EMBED_SIZE = 60
 NONLIN = torch.nn.Tanh() # torch.nn.ReLU()
 
 class CatLayerKind(Enum):
@@ -329,6 +329,16 @@ def load_one(filename):
   selec = set()
   
   empty = None
+  
+  depths = defaultdict(int)
+  max_depth = 0
+  
+  def update_depths(id,depths,max_depth):
+    ps = pars[id]
+    depth = max([depths[p] for p in ps])+1
+    depths[id] = depth
+    if depth > max_depth:
+      max_depth = depth
 
   with open(filename,'r') as f:
     for line in f:
@@ -350,6 +360,9 @@ def load_one(filename):
         deriv.append((val[1],tuple(val[2:7])))
         id = val[1]
         pars[id] = val[7:]
+        
+        update_depths(id,depths,max_depth)
+        
       elif spl[0] == "a:":
         # a: [3,cl_id,age,weight,len,causal_parent or -1]
         # treat it as deriv (with one parent):
@@ -358,6 +371,9 @@ def load_one(filename):
         deriv.append((val[1],(val[2],val[3],val[4],1,666))) # 1 for num_splits, 666 for rule
         id = val[1]
         pars[id] = [val[-1]]
+      
+        update_depths(id,depths,max_depth)
+      
       elif spl[0] == "s:":
         selec.add(int(spl[1]))
       elif spl[0] == "r:":
@@ -367,7 +383,9 @@ def load_one(filename):
       elif spl[0] == "f:":
         # fake one more derived clause ("-1") into parents
         empty = -1
-        pars[empty] = map(int,spl[1].split(","))
+        pars[empty] = list(map(int,spl[1].split(",")))
+        
+        update_depths(id,depths,max_depth)
   
   assert(empty is not None)
 
@@ -391,6 +409,7 @@ def load_one(filename):
   good = good & selec # proof clauses that were never selected don't count
 
   # TODO: consider learning only from hard problems!
+  
   # E.g., solveable by a stupid strategy (age-only), get filtered out
   if not selec or not good:
     print("Skipping, degenerate.")

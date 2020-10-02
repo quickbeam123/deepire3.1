@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     
-    plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='best')
+    plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
     
     plt.savefig("plot.png",dpi=250)
 

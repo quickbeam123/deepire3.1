@@ -54,5 +54,5 @@ if __name__ == "__main__":
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     
-    plt.legend(handles = [tl,vl,tpr,tnr], loc='best')
-    plt.savefig("plot.png",dpi=250)
+    plt.legend(handles = [tl,vl,tpr,tnr], loc='lower left')
+    plt.savefig(sys.argv[3],dpi=250)
