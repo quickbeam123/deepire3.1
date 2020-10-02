@@ -2,7 +2,9 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_aitp447 > run60_lr001_p85n15.txt 2>&1
+./multi_inf_parallel.py smt4vamp_aitp447 smt4vamp_aitp447/initial_60_Tanh_CatLayBIGGER_EvalLayNONLIN_LayerNormOFF.pt > run60_lr001_p85n15_swout01.txt 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_aitp447 > run60_lr001_p85n15.txt 2>&1
 
 # ./multi_inf_parallel.py smt4vamp_aitpUnion > run57_lr001_p85n15.txt 2>&1
 

@@ -16,40 +16,7 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import sys,random
 
-from enum import Enum
-
-# MODEL PARAMS:
-
-# a hyper-parameter of the future model
-EMBED_SIZE = 60
-NONLIN = torch.nn.Tanh() # torch.nn.ReLU()
-
-class CatLayerKind(Enum):
-  SMALL = 1
-  BIGGER = 2  # as used at AITP
-  DOUBLE_NONLIN = 3  # seems to make more sense
-
-CAT_LAYER = CatLayerKind.BIGGER
-
-class EvalLayerKind(Enum):
-  LINEAR = 1
-  NONLIN = 2
-
-EVAL_LAYER = EvalLayerKind.NONLIN
-
-class LayerNorm(Enum):
-  OFF = 1
-  ON = 2
-
-LAYER_NORM = LayerNorm.OFF
-
-# LEARNING PARAMS:
-
-SWAPOUT = 0.0
-LEARN_RATE = 0.001
-
-POS_BIAS = 0.85
-NEG_BIAS = 0.15
+import hyperparams as HP
 
 class Embed(torch.nn.Module):
   weight: Tensor
@@ -70,24 +37,29 @@ class CatAndNonLinear(torch.nn.Module):
   
   def __init__(self, dim : int, arit: int):
     super(CatAndNonLinear, self).__init__()
-    if CAT_LAYER == CatLayerKind.SMALL:
-      self.catter = torch.nn.Linear(arit*dim,dim)
+    if HP.NONLIN == HP.NonLinKind_TANH:
+      self.nonlin = torch.nn.Tanh()
+    else:
+      self.nonlin = torch.nn.ReLU()
+    
+    if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
+      self.first = torch.nn.Linear(arit*dim,dim)
     else: # for BIGGER and DOUBLE_NONLIN
-      self.big = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
-      self.small = torch.nn.Linear((arit+1)*dim//2,dim)
+      self.first = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
+      self.second = torch.nn.Linear((arit+1)*dim//2,dim)
 
   def forward(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
-    if CAT_LAYER == CatLayerKind.SMALL:
-      x = self.catter(x)
-      x = NONLIN(x)
+    if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
+      x = self.first(x)
+      x = self.nonlin(x)
     else: # for BIGGER and DOUBLE_NONLIN
-      x = self.big(x)
-      x = NONLIN(x)
-      x = self.small(x)
+      x = self.first(x)
+      x = self.nonlin(x)
+      x = self.second(x)
 
-    if CAT_LAYER == CatLayerKind.DOUBLE_NONLIN:
-      x = NONLIN(x)
+    if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
+      x = self.nonlin(x)
 
     return x
 
@@ -96,7 +68,7 @@ def get_initial_model(init_hist,deriv_hist):
   assert(-1 in init_hist) # to have conjecture embedding
   assert(0 in init_hist)  # to have user-fla embedding
   for i in init_hist:
-    init_embeds[str(i)] = Embed(EMBED_SIZE)
+    init_embeds[str(i)] = Embed(HP.EMBED_SIZE)
 
   # to have the arity 1 and 2 defaults
   # NOTE: 1 and 2 don't conflict with proper rule indexes
@@ -105,20 +77,25 @@ def get_initial_model(init_hist,deriv_hist):
 
   deriv_mlps = torch.nn.ModuleDict()
   for (rule,arit) in deriv_hist:
-    deriv_mlps[str(rule)] = CatAndNonLinear(EMBED_SIZE,arit)
+    deriv_mlps[str(rule)] = CatAndNonLinear(HP.EMBED_SIZE,arit)
   
-  if EVAL_LAYER == EvalLayerKind.LINEAR:
-    eval_net = torch.nn.Linear(EMBED_SIZE,1)
+  if HP.EVAL_LAYER == HP.EvalLayerKind_LINEAR:
+    eval_net = torch.nn.Linear(HP.EMBED_SIZE,1)
   else:
     eval_net = torch.nn.Sequential(
-         torch.nn.Linear(EMBED_SIZE,EMBED_SIZE//2),
-         NONLIN,
-         torch.nn.Linear(EMBED_SIZE//2,1))
+         torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE//2),
+         torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
+         torch.nn.Linear(HP.EMBED_SIZE//2,1))
 
   return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}.pt".format(EMBED_SIZE,str(NONLIN)[:4],CAT_LAYER.name,EVAL_LAYER.name,LAYER_NORM.name)
+  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}.pt".format(
+    HP.EMBED_SIZE,
+    HP.NonLinKindName(HP.NONLIN),
+    HP.CatLayerKindName(HP.CAT_LAYER),
+    HP.EvalLayerKindName(HP.EVAL_LAYER),
+    HP.LayerNormName(HP.LAYER_NORM))
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -246,8 +223,8 @@ class LearningModel(torch.nn.Module):
     self.selec = selec
     self.good = good
   
-    self.pos_weight = POS_BIAS/len(good) if len(good) else 1.0
-    self.neg_weight = NEG_BIAS/(len(selec)-len(good)) if (len(selec)-len(good)) else 1.0
+    self.pos_weight = HP.POS_BIAS/len(good) if len(good) else 1.0
+    self.neg_weight = HP.NEG_BIAS/(len(selec)-len(good)) if (len(selec)-len(good)) else 1.0
   
   def contribute(self, id: int, embed : Tensor):
     val = self.eval_net(embed)
@@ -282,7 +259,7 @@ class LearningModel(torch.nn.Module):
     loss = torch.zeros(1)
     
     for id, thax in self.init:
-      if SWAPOUT > 0.0 and random.random() < SWAPOUT:
+      if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
         embed = self.init_embeds[str(0)]()
       else:
         embed = self.init_embeds[str(thax)]()
@@ -296,7 +273,7 @@ class LearningModel(torch.nn.Module):
       
       par_embeds = [store[par] for par in self.pars[id]]
       
-      if SWAPOUT > 0.0 and random.random() < SWAPOUT:
+      if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
         arit = len(self.pars[id])
         embed = self.deriv_mlps[str(arit)](par_embeds)
       else:

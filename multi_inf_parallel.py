@@ -133,7 +133,6 @@ if __name__ == "__main__":
 
   optimizer = torch.optim.Adam(master_parts.parameters(), lr=IC.LEARN_RATE)
 
-  
   times = []
   train_losses = []
   train_posrates = []
@@ -144,7 +143,7 @@ if __name__ == "__main__":
   
   start_time = time.time()
 
-  EPOCHS_BEFORE_VALIDATION = 1
+  EPOCHS_BEFORE_VALIDATION = 5
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
@@ -246,7 +245,11 @@ if __name__ == "__main__":
     vnr, = ax2.plot(times, valid_negrates, "-", label = "valid_negrate", color = "cyan")
     ax2.tick_params(axis='y', labelcolor=color)
 
+    # For pos and neg rates, we know the meaningful range:
+    ax2.set_ylim([-0.05,1.05])
+
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
     
     plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
     

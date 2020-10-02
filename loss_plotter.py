@@ -44,6 +44,8 @@ if __name__ == "__main__":
     vl, = ax1.plot(np.array(losses)-0.3, "--", linewidth = 1, label = "valid-loss", color=color)
     ax1.tick_params(axis='y', labelcolor=color)
 
+    ax1.set_ylim(bottom=-0.05) # to have loss bottom at zero in the plot
+
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
     color = 'tab:blue'
@@ -51,6 +53,8 @@ if __name__ == "__main__":
     tpr, = ax2.plot(posrates, "-", label = "posrate", color = "blue")
     tnr, = ax2.plot(negrates, "--", label = "negrate", color = "cyan")
     ax2.tick_params(axis='y', labelcolor=color)
+    
+    ax2.set_ylim([-0.05,1.05])
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     
