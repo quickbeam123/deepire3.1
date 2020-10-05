@@ -416,19 +416,20 @@ def load_one(filename):
 
   return (init,deriv,pars,selec,good)
 
-def prepare_hists(prob_data):
+def prepare_hists(prob_data_list):
   init_hist = defaultdict(int)
   deriv_hist = defaultdict(int)
 
-  for probname, (init,deriv,pars,selec,good) in prob_data.items():
+  for probname, (init,deriv,pars,selec,good) in prob_data_list:
     for id, features in init:
       # print("init",id)
-      goal = features[-3]
-      thax = features[-2]
-      
+      # goal = features[-3]
+      # thax = features[-2]
       # unite them together
-      thax = -1 if features[-3] else features[-2]
+      # thax = -1 if features[-3] else features[-2]
       
+      # already simplified
+      thax = features
       init_hist[thax] += 1
 
     # make sure we have 0 - the default embedding ...
@@ -437,7 +438,10 @@ def prepare_hists(prob_data):
     init_hist[-1] += 1
 
     for id, features in deriv:
-      rule = features[-1]
+      # rule = features[-1]
+      
+      # already simplified
+      rule = features
       arit = len(pars[id])
 
       deriv_hist[(rule,arit)] += 1 # rule always implies a fixed arity (hmm, maybe not for global_sumbsumption)
@@ -486,6 +490,90 @@ def normalize_prob_data(prob_data):
     clause_offset += (id_max+1)
 
   return prob_data_list
+
+def compress_prob_data(some_probs):
+  # Takes an iterable of "probname, (init,deriv,pars,selec,good)" and
+  # "hashes them structurally" (modulo the features we care about) to just one graph to learn from
+  # initially intended to be used with just a singleton some_probs
+  # (possible to compress pairs and triples, etc, to obtain "larger minibatches")
+  #
+  # Should replace normalize_prob_data above, although that one processes the whole dataset
+  # and the new one should be applied piece-by-piece
+  #
+  # The selected features are
+  # *) "thax" for init (can be -1 signifying conjecture clause, 0 for regular input and thax_ids otherwise)
+  # *) and "rule" for deriv (arity is implict in the number of parents
+
+  id_cnt = 0
+  out_probname = ""
+  
+  abs2new = {} # maps (thax/rule,par_new_ids) to new_id (the structurally hashed one)
+  
+  out_init = []
+  out_deriv = []
+  out_pars = {}
+  out_selec = set()
+  out_good = set()
+
+  for probname, (init,deriv,pars,selec,good) in some_probs:
+    # reset for evey problem in the list
+    old2new = {} # maps old_id to new_id (this is the not-necessarily-injective map)
+  
+    if out_probname:
+      out_probname += "+"+probname
+    else:
+      out_probname = probname
+
+    for old_id, features in init:
+      # thax = features
+      thax = -1 if features[-3] else features[-2]
+
+      abskey = (thax)
+
+      if abskey not in abs2new:
+        new_id = id_cnt
+        id_cnt += 1
+
+        abs2new[abskey] = new_id
+        out_init.append((new_id,thax))
+      else:
+        new_id = abs2new[abskey]
+
+      old2new[old_id] = new_id
+
+      if old_id in selec: # union of selects
+        out_selec.add(new_id)
+      if old_id in good:  # union of goods (we don't care it was bad some other time)
+        out_good.add(new_id)
+
+    for old_id, features in deriv:
+      # rule = features
+      rule = features[-1]
+
+      new_pars = [old2new[par] for par in pars[old_id]]
+      
+      abskey = tuple([rule]+new_pars)
+
+      if abskey not in abs2new:
+        new_id = id_cnt
+        id_cnt += 1
+
+        abs2new[abskey] = new_id
+        
+        out_deriv.append((new_id,rule))
+        out_pars[new_id] = new_pars
+      else:
+        new_id = abs2new[abskey]
+
+      old2new[old_id] = new_id
+
+      if old_id in selec: # union of selects
+        out_selec.add(new_id)
+      if old_id in good:  # union of goods (we don't care it was bad some other time)
+        out_good.add(new_id)
+
+  print("Compressed to",len(out_init),len(out_deriv),len(out_pars),len(out_selec),len(out_good))
+  return out_probname, (out_init,out_deriv,out_pars,out_selec,out_good)
 
 def big_data_prob(prob_data_list):
   # compute the big graph union - currently unused - was too big to use at once

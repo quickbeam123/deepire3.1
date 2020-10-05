@@ -7,7 +7,7 @@ import torch
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 39
+EMBED_SIZE = 50
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -56,13 +56,13 @@ def LayerNormName(val):
 
 LAYER_NORM = LayerNorm_OFF
 
-DROPOUT = 0.5
+DROPOUT = 0.0
 
 # LEARNING PARAMS:
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
-POS_BIAS = 0.85
-NEG_BIAS = 0.15
+POS_BIAS = 0.75
+NEG_BIAS = 0.25
 

@@ -30,19 +30,20 @@ if __name__ == "__main__":
   #
   # data_hist.pt training_data.pt validation_data.pt are created in <folder>
 
-  prob_data = {} # probname -> (init,deriv,pars,selec,good)
+  prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
   
   with open(sys.argv[2],"r") as f:
     for line in f:
       probname = line[:-1]
       probdata = IC.load_one(probname)
       if probdata is not None: # None when the problem was Saturated / Satisfiable
-        prob_data[probname] = probdata
+        probdata = IC.compress_prob_data([(probname,probdata)])
+        prob_data_list.append(probdata)
 
-  print(len(prob_data),"problems loaded!")
+  print(len(prob_data_list),"problems loaded!")
   print()
 
-  init_hist,deriv_hist = IC.prepare_hists(prob_data)
+  init_hist,deriv_hist = IC.prepare_hists(prob_data_list)
 
   print("init_hist",init_hist)
   print("deriv_hist",deriv_hist)
@@ -50,12 +51,6 @@ if __name__ == "__main__":
   print("Saving hist to",filename)
   torch.save((init_hist,deriv_hist), filename)
   print()
-
-  # NORMALIZE PROBLEM DATA:
-  # 1) it's better to have them in a list (for random.choice)
-  # 2) it's better to disambiguate clause indices, so that any union of problems will make sense as on big graph
-  prob_data_list = IC.normalize_prob_data(prob_data)
-  print("prob_data_list normalized")
 
   random.shuffle(prob_data_list)
   spl = int(len(prob_data_list) * 0.8)

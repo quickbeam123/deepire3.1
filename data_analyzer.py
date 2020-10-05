@@ -25,6 +25,30 @@ if __name__ == "__main__":
 
   prob_data_list = torch.load(sys.argv[1]) # [ probname, (init,deriv,pars,selec,good)]
   
+  '''
+  i = 208
+
+  (probname,(init,deriv,pars,selec,good)) = prob_data_list[i]
+  print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  (probname,(init,deriv,pars,selec,good)) = IC.compress_prob_data([prob_data_list[i]])
+  print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  print()
+  
+  i = 662
+  
+  (probname,(init,deriv,pars,selec,good)) = prob_data_list[i]
+  print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  (probname,(init,deriv,pars,selec,good)) = IC.compress_prob_data([prob_data_list[i]])
+  print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  print()
+  
+  (probname,(init,deriv,pars,selec,good)) = IC.compress_prob_data([prob_data_list[208],prob_data_list[662]])
+  print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  print()
+  
+  exit(0)
+  '''
+  
   init_len_hist = defaultdict(int)
   sel_len_hist = defaultdict(int)
   max_depth_hist = defaultdict(int)
