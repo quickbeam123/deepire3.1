@@ -28,12 +28,12 @@ if __name__ == "__main__":
   init_len_hist = defaultdict(int)
   sel_len_hist = defaultdict(int)
   max_depth_hist = defaultdict(int)
-  for probname,(init,deriv,pars,selec,good) in prob_data_list:
+  for i,(probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
     init_len_hist[len(init)] += 1
     sel_len_hist[len(selec)] += 1
     depths = defaultdict(int)
     max_depth = 0
-    print(probname,len(init),len(deriv),len(pars),len(selec),len(good))
+    print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
     for id,ps in sorted(pars.items()):
       if not ps: # there
         print(id)

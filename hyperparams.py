@@ -7,7 +7,7 @@ import torch
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 60
+EMBED_SIZE = 39
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -32,7 +32,7 @@ def CatLayerKindName(val):
   elif val == CatLayerKind_DOUBLE_NONLIN:
     return "DOUBLE_NONLIN"
 
-CAT_LAYER = CatLayerKind_BIGGER
+CAT_LAYER = CatLayerKind_DOUBLE_NONLIN
 
 EvalLayerKind_LINEAR = 1
 EvalLayerKind_NONLIN = 2
@@ -56,9 +56,11 @@ def LayerNormName(val):
 
 LAYER_NORM = LayerNorm_OFF
 
+DROPOUT = 0.5
+
 # LEARNING PARAMS:
 
-SWAPOUT = 0.1
+SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
 POS_BIAS = 0.85

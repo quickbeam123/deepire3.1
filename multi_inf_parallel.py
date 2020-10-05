@@ -29,6 +29,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import inf_common as IC
+import hyperparams as HP
 
 NUMPROCESSES = 50
 
@@ -53,6 +54,12 @@ def eval_and_or_learn_on_one(myparts,data,training):
   # data = prob_data_list[idx][1]
   (init,deriv,pars,selec,good) = data
   model = IC.LearningModel(*myparts,init,deriv,pars,selec,good)
+  
+  if training:
+    model.train()
+  else:
+    model.eval()
+  
   (loss,posRate,negRate) = model()
   
   if training:
@@ -131,7 +138,7 @@ if __name__ == "__main__":
   train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1)) # the last recoreded stats on the i-th problem
   validation_statistics = np.tile([1.0,0.0,0.0],(len(valid_data_list),1))
 
-  optimizer = torch.optim.Adam(master_parts.parameters(), lr=IC.LEARN_RATE)
+  optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
 
   times = []
   train_losses = []
@@ -147,6 +154,11 @@ if __name__ == "__main__":
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
+    
+    '''
+    if epoch > 100:
+      exit(0)
+    '''
     
     times.append(epoch)
     

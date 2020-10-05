@@ -2,7 +2,15 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_aitp447 smt4vamp_aitp447/initial_60_Tanh_CatLayBIGGER_EvalLayNONLIN_LayerNormOFF.pt > run60_lr001_p85n15_swout01.txt 2>&1
+./multi_inf_parallel.py smt4vamp_defaultStrat > run39dropout_lr001_p85n15_swout00.txt 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_defaultStrat smt4vamp_defaultStrat/model0_40_Tanh_CatLayBIGGER_EvalLayNONLIN_LayerNormOFF_Dropout0.5.pt > run40dropout_lr0001_p85n15_swout00.txt 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_aitp447 smt4vamp_aitp447/initial_59_Tanh_CatLayBIGGER_EvalLayNONLIN_LayerNormOFF.pt > run59_lr001_p85n15_swout02.txt 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_aitp447 > run59_lr001_p85n15_swout00.txt 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_aitp447 smt4vamp_aitp447/initial_60_Tanh_CatLayBIGGER_EvalLayNONLIN_LayerNormOFF.pt > run60_lr001_p85n15_swout01.txt 2>&1
 
 # ./multi_inf_parallel.py smt4vamp_aitp447 > run60_lr001_p85n15.txt 2>&1
 

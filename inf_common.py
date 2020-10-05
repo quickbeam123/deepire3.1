@@ -37,6 +37,12 @@ class CatAndNonLinear(torch.nn.Module):
   
   def __init__(self, dim : int, arit: int):
     super(CatAndNonLinear, self).__init__()
+    
+    if HP.DROPOUT > 0.0:
+      self.prolog = torch.nn.Dropout(HP.DROPOUT)
+    else:
+      self.prolog = torch.nn.Identity(arit*dim)
+    
     if HP.NONLIN == HP.NonLinKind_TANH:
       self.nonlin = torch.nn.Tanh()
     else:
@@ -50,6 +56,9 @@ class CatAndNonLinear(torch.nn.Module):
 
   def forward(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
+    
+    x = self.prolog(x)
+    
     if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
       x = self.first(x)
       x = self.nonlin(x)
@@ -80,9 +89,12 @@ def get_initial_model(init_hist,deriv_hist):
     deriv_mlps[str(rule)] = CatAndNonLinear(HP.EMBED_SIZE,arit)
   
   if HP.EVAL_LAYER == HP.EvalLayerKind_LINEAR:
-    eval_net = torch.nn.Linear(HP.EMBED_SIZE,1)
+    eval_net = torch.nn.Sequential(
+         torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
+         torch.nn.Linear(HP.EMBED_SIZE,1))
   else:
     eval_net = torch.nn.Sequential(
+         torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
          torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE//2),
          torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
          torch.nn.Linear(HP.EMBED_SIZE//2,1))
@@ -90,12 +102,13 @@ def get_initial_model(init_hist,deriv_hist):
   return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}.pt".format(
+  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}.pt".format(
     HP.EMBED_SIZE,
     HP.NonLinKindName(HP.NONLIN),
     HP.CatLayerKindName(HP.CAT_LAYER),
     HP.EvalLayerKindName(HP.EVAL_LAYER),
-    HP.LayerNormName(HP.LAYER_NORM))
+    HP.LayerNormName(HP.LAYER_NORM),
+    HP.DROPOUT)
 
 bigpart1 = '''#!/usr/bin/env python3
 
