@@ -18,7 +18,7 @@ def NonLinKindName(val):
   elif val == NonLinKind_RELU:
     return "ReLU"
 
-NONLIN = NonLinKind_TANH
+NONLIN = NonLinKind_RELU
 
 CatLayerKind_SMALL = 1
 CatLayerKind_BIGGER = 2  # as used at AITP
@@ -54,7 +54,7 @@ def LayerNormName(val):
   elif val == LayerNorm_ON:
     return "ON"
 
-LAYER_NORM = LayerNorm_OFF
+LAYER_NORM = LayerNorm_ON
 
 DROPOUT = 0.0
 

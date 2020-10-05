@@ -54,6 +54,11 @@ class CatAndNonLinear(torch.nn.Module):
       self.first = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
       self.second = torch.nn.Linear((arit+1)*dim//2,dim)
 
+    if HP.LAYER_NORM == HP.LayerNorm_ON:
+      self.epilog = torch.nn.LayerNorm(dim)
+    else:
+      self.epilog = torch.nn.Identity(dim)
+
   def forward(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
     
@@ -69,6 +74,8 @@ class CatAndNonLinear(torch.nn.Module):
 
     if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
       x = self.nonlin(x)
+
+    x = self.epilog(x)
 
     return x
 

@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 50
+NUMPROCESSES = 60
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -150,7 +150,7 @@ if __name__ == "__main__":
   
   start_time = time.time()
 
-  EPOCHS_BEFORE_VALIDATION = 5
+  EPOCHS_BEFORE_VALIDATION = 1
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
