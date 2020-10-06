@@ -596,3 +596,36 @@ def big_data_prob(prob_data_list):
   # print(big_init)
 
   return (big_init,big_deriv,big_pars,big_selec,big_good)
+
+import matplotlib.pyplot as plt
+
+def plot_one(filename,times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates):
+  fig, ax1 = plt.subplots()
+  
+  color = 'tab:red'
+  ax1.set_xlabel('time (epochs)')
+  ax1.set_ylabel('loss', color=color)
+  tl, = ax1.plot(times, train_losses, "--", linewidth = 1, label = "train_loss", color=color)
+  vl, = ax1.plot(times, valid_losses, "-", linewidth = 1,label = "valid_loss", color=color)
+  ax1.tick_params(axis='y', labelcolor=color)
+
+  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+  color = 'tab:blue'
+  ax2.set_ylabel('pos/neg-rate', color=color)  # we already handled the x-label with ax1
+  
+  tpr, = ax2.plot(times, train_posrates, "--", label = "train_posrate", color = "blue")
+  tnr, = ax2.plot(times, train_negrates, "--", label = "train_negrate", color = "cyan")
+  vpr, = ax2.plot(times, valid_posrates, "-", label = "valid_posrate", color = "blue")
+  vnr, = ax2.plot(times, valid_negrates, "-", label = "valid_negrate", color = "cyan")
+  ax2.tick_params(axis='y', labelcolor=color)
+
+  # For pos and neg rates, we know the meaningful range:
+  ax2.set_ylim([-0.05,1.05])
+
+  fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+  plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
+  
+  plt.savefig(filename,dpi=250)
+  plt.close(fig)

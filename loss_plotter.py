@@ -2,61 +2,50 @@
 
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
+
+import inf_common as IC
 
 if __name__ == "__main__":
   # - open the file which multi_inf_parallel.py outputs
   # (see also the redirect in start.sh), this is argv[1],
-  # and plot the development of loss into argv[3],
-  # only start "recording" when the loss drops below argv[2]
+  # and plot the development of loss into argv[2]
 
-  losses = []
-  posrates = []
-  negrates = []
+  times = []
+  train_losses = []
+  train_posrates = []
+  train_negrates = []
+  valid_losses = []
+  valid_posrates = []
+  valid_negrates = []
   
   cnt = 0
   
   reading = False
   with open(sys.argv[1],"r") as f:
     for line in f:
-      if line.startswith("Global: "):
+      if line.startswith("(Multi)-epoch") and "learning finished at" in line:
+        time = int(line.split()[1])
+        times.append(time)
+        
+      if line.startswith("Training stats:"):
         spl = line.split()
-        loss = float(spl[1])
-        posrate = float(spl[2])
-        negrate = float(spl[3])
+        loss = float(spl[2])
+        posrate = float(spl[3])
+        negrate = float(spl[4])
         
-        cnt += 1
-        if cnt % 100 != 0:
-          continue
+        train_losses.append(loss)
+        train_posrates.append(posrate)
+        train_negrates.append(negrate)
         
-        if reading or loss < float(sys.argv[2]):
-          reading = True
-          losses.append(loss)
-          posrates.append(posrate)
-          negrates.append(negrate)
+      if line.startswith("Validation stats:"):
+        spl = line.split()
+        loss = float(spl[2])
+        posrate = float(spl[3])
+        negrate = float(spl[4])
+        
+        valid_losses.append(loss)
+        valid_posrates.append(posrate)
+        valid_negrates.append(negrate)
 
-    fig, ax1 = plt.subplots()
-    
-    color = 'tab:red'
-    ax1.set_xlabel('time (epochs)')
-    ax1.set_ylabel('loss', color=color)
-    tl, = ax1.plot(losses, "-", linewidth = 1,label = "train_loss", color=color)
-    vl, = ax1.plot(np.array(losses)-0.3, "--", linewidth = 1, label = "valid-loss", color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    ax1.set_ylim(bottom=-0.05) # to have loss bottom at zero in the plot
-
-    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-    color = 'tab:blue'
-    ax2.set_ylabel('pos/neg-rate', color=color)  # we already handled the x-label with ax1
-    tpr, = ax2.plot(posrates, "-", label = "posrate", color = "blue")
-    tnr, = ax2.plot(negrates, "--", label = "negrate", color = "cyan")
-    ax2.tick_params(axis='y', labelcolor=color)
-    
-    ax2.set_ylim([-0.05,1.05])
-
-    fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    
-    plt.legend(handles = [tl,vl,tpr,tnr], loc='lower left')
-    plt.savefig(sys.argv[3],dpi=250)
+    for i in range(50):
+      IC.plot_one(sys.argv[2],times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)

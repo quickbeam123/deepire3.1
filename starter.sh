@@ -2,7 +2,7 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_defaultStrat > run50_lr001_p75n25_swout00.txt 2>&1
+./multi_inf_parallel.py smt4vamp_defaultStrat > run50_lr0005_p75n25_swout00.txt 2>&1
 
 # ./multi_inf_parallel.py smt4vamp_defaultStrat smt4vamp_defaultStrat/model-epoch40.pt > 2_run39dropout_lr001_p85n15_swout00.txt 2>&1
 
