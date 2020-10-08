@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 20
+NUMPROCESSES = 15
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -152,11 +152,35 @@ if __name__ == "__main__":
 
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
-    
-    if epoch > 50:
+   
+    '''
+    if epoch > 100:
       exit(0)
+    '''
     
     times.append(epoch)
+    
+    '''
+    if epoch % 5 == 0:
+      print("Coagulating training data")
+      
+      if len(train_data_list) % 2 == 1:
+        new_train_data_list = [train_data_list.pop()]
+      else:
+        new_train_data_list = []
+
+      assert(len(train_data_list) % 2 == 0)
+
+      it = iter(train_data_list)
+      for pair in zip(it,it):
+        new_train_data_list.append(IC.compress_prob_data(pair))
+  
+      train_data_list = new_train_data_list
+      # shrink the statistisc as well
+      train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1))
+      
+      print("New train data size",len(train_data_list))
+    '''
     
     feed_sequence = []
     for _ in range(EPOCHS_BEFORE_VALIDATION):

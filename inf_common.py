@@ -173,6 +173,15 @@ bigpart_rec2='''
       return val[0].item() >= 0.0'''
 
 bigpart3 = '''
+    @torch.jit.export
+    def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> bool:
+      par = features[-1]
+      par_embeds = [self.store[par]]
+      embed = self.deriv_666(par_embeds) # special avatar code
+      self.store[id] = embed
+      val = self.eval_net(embed)
+      return val[0].item() >= 0.0
+
   module = torch.jit.script(InfRecNet(
     init_embeds['-1'],
     init_embeds['0'],'''
@@ -212,7 +221,8 @@ def create_saver(init_hist,deriv_hist):
         print(bigpart_rec1.format(str(i),str(i)),file=f)
 
     for (rule,arit) in sorted(deriv_hist):
-      print(bigpart_rec2.format(str(rule),str(rule)),file=f)
+      if rule < 666: # avatar done differently in bigpart3
+        print(bigpart_rec2.format(str(rule),str(rule)),file=f)
 
     print(bigpart3,file=f)
     for i in sorted(init_hist):
@@ -317,6 +327,17 @@ def get_ancestors(seed,pars):
           todo.append(par)
   return ancestors
 
+def abstract_initial(features):
+  goal = features[-3]
+  thax = features[-2]
+  # unite them together
+  thax = -1 if features[-3] else features[-2]
+  return thax
+
+def abstract_deriv(features):
+  rule = features[-1]
+  return rule
+
 def load_one(filename):
   print("Loading",filename)
 
@@ -349,12 +370,12 @@ def load_one(filename):
       if spl[0] == "i:":
         val = eval(spl[1])
         assert(val[0] == 1)
-        init.append((val[1],val[2:]))
+        init.append((val[1],abstract_initial(val[2:])))
       elif spl[0] == "d:":
         # d: [2,cl_id,age,weight,len,num_splits,rule,par1,par2,...]
         val = eval(spl[1])
         assert(val[0] == 2)
-        deriv.append((val[1],tuple(val[2:7])))
+        deriv.append((val[1],abstract_deriv(tuple(val[2:7]))))
         id = val[1]
         pars[id] = val[7:]
         
@@ -365,7 +386,7 @@ def load_one(filename):
         # treat it as deriv (with one parent):
         val = eval(spl[1])
         assert(val[0] == 3)
-        deriv.append((val[1],(val[2],val[3],val[4],1,666))) # 1 for num_splits, 666 for rule
+        deriv.append((val[1],abstract_deriv((val[2],val[3],val[4],1,666)))) # 1 for num_splits, 666 for rule
         id = val[1]
         pars[id] = [val[-1]]
       
@@ -429,13 +450,7 @@ def prepare_hists(prob_data_list):
 
   for probname, (init,deriv,pars,selec,good) in prob_data_list:
     for id, features in init:
-      # print("init",id)
-      # goal = features[-3]
-      # thax = features[-2]
-      # unite them together
-      # thax = -1 if features[-3] else features[-2]
-      
-      # already simplified
+      # already abstracted
       thax = features
       init_hist[thax] += 1
 
@@ -445,9 +460,7 @@ def prepare_hists(prob_data_list):
     init_hist[-1] += 1
 
     for id, features in deriv:
-      # rule = features[-1]
-      
-      # already simplified
+      # already abstracted
       rule = features
       arit = len(pars[id])
 
@@ -471,7 +484,8 @@ def normalize_prob_data(prob_data):
     id_max = 0
     new_init = []
     for id, features in init:
-      thax = -1 if features[-3] else features[-2]
+      # already abstracted
+      thax = features
       new_init.append((id+clause_offset, thax))
     
       if id > id_max:
@@ -479,7 +493,8 @@ def normalize_prob_data(prob_data):
 
     new_deriv = []
     for id, features in deriv:
-      rule = features[-1]
+      # already abstracted
+      rule = features
       new_deriv.append((id+clause_offset, rule))
       
       if id > id_max:
@@ -532,8 +547,8 @@ def compress_prob_data(some_probs):
       out_probname = probname
 
     for old_id, features in init:
-      # thax = features
-      thax = -1 if features[-3] else features[-2]
+      # already abstracted
+      thax = features
 
       abskey = (thax)
 
@@ -554,8 +569,8 @@ def compress_prob_data(some_probs):
         out_good.add(new_id)
 
     for old_id, features in deriv:
-      # rule = features
-      rule = features[-1]
+      # already abstracted
+      rule = features
 
       new_pars = [old2new[par] for par in pars[old_id]]
       

@@ -19,7 +19,7 @@ if __name__ == "__main__":
   valid_negrates = []
   
   cnt = 0
-  
+
   reading = False
   with open(sys.argv[1],"r") as f:
     for line in f:
@@ -47,5 +47,13 @@ if __name__ == "__main__":
         valid_posrates.append(posrate)
         valid_negrates.append(negrate)
 
-    for i in range(50):
-      IC.plot_one(sys.argv[2],times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
+    IC.plot_one(sys.argv[2],times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
+
+  idx = np.argmin(train_losses)
+  print("Best train loss model",times[idx])
+  print("Loss:",train_losses[idx],"posrate",train_posrates[idx],"negrate",train_negrates[idx])
+  idx = np.argmin(valid_losses)
+  print("Best valid loss model",times[idx])
+  print("Loss:",valid_losses[idx],"posrate",valid_posrates[idx],"negrate",valid_negrates[idx])
+
+
