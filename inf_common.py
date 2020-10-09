@@ -172,7 +172,7 @@ bigpart_rec2='''
       val = self.eval_net(embed)
       return val[0].item() >= 0.0'''
 
-bigpart3 = '''
+bigpart_avat = '''
     @torch.jit.export
     def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> bool:
       par = features[-1]
@@ -180,8 +180,9 @@ bigpart3 = '''
       embed = self.deriv_666(par_embeds) # special avatar code
       self.store[id] = embed
       val = self.eval_net(embed)
-      return val[0].item() >= 0.0
+      return val[0].item() >= 0.0'''
 
+bigpart3 = '''
   module = torch.jit.script(InfRecNet(
     init_embeds['-1'],
     init_embeds['0'],'''
@@ -223,6 +224,9 @@ def create_saver(init_hist,deriv_hist):
     for (rule,arit) in sorted(deriv_hist):
       if rule < 666: # avatar done differently in bigpart3
         print(bigpart_rec2.format(str(rule),str(rule)),file=f)
+
+    if (666,1) in deriv_hist:
+      print(bigpart_avat,file=f)
 
     print(bigpart3,file=f)
     for i in sorted(init_hist):
