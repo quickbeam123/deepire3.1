@@ -99,6 +99,9 @@ if __name__ == "__main__":
   # if <initial-model> is not specified,
   # it creates a new one in <folder> using the same naming scheme as initializer.py
   
+  # global redirect of prints to the just upen "logfile"
+  sys.stdout = open("run"+IC.name_learning_regime_suffix(), 'w')
+  
   train_data_list = torch.load("{}/training_data.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_list))
   valid_data_list = torch.load("{}/validation_data.pt".format(sys.argv[1]))

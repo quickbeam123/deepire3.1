@@ -117,6 +117,14 @@ def name_initial_model_suffix():
     HP.LayerNormName(HP.LAYER_NORM),
     HP.DROPOUT)
 
+def name_learning_regime_suffix():
+  return "_lr{}_p{}n{}_swapout{}_trr{}.txt".format(
+    HP.LEARN_RATE,
+    HP.POS_BIAS,
+    HP.NEG_BIAS,
+    HP.SWAPOUT,
+    HP.TestRiskRegimenName(HP.TRR))
+
 bigpart1 = '''#!/usr/bin/env python3
 
 import torch
