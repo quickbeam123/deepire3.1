@@ -114,6 +114,12 @@ if __name__ == "__main__":
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name)
 
+  if HP.TRR == TestRiskRegimen_OVERFIT:
+    # merge validation data back to training set (and ditch early stopping regularization)
+    train_data_list += valid_data_list
+    valid_data_list = []
+    print("Merged valid with train; final:",len(train_data_list))
+
   epoch = 0
 
   # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.

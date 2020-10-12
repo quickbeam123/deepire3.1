@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import inf_common as IC
+
 import torch
 from torch import Tensor
 
@@ -11,8 +13,6 @@ from collections import defaultdict
 from collections import ChainMap
 
 import sys,random,itertools
-
-import inf_common as IC
 
 def eval_one(model,init,deriv,pars,selec,good):
   posOK = 0
