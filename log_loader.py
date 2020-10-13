@@ -33,12 +33,15 @@ if __name__ == "__main__":
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
   
   with open(sys.argv[2],"r") as f:
-    for line in f:
+    for i,line in enumerate(f):
       probname = line[:-1]
+      print(i)
+      start_time = time.time()
       probdata = IC.load_one(probname)
       if probdata is not None: # None when the problem was Saturated / Satisfiable
         probdata = IC.compress_prob_data([(probname,probdata)])
         prob_data_list.append(probdata)
+      print("Took",time.time()-start_time)
 
   print(len(prob_data_list),"problems loaded!")
   print()

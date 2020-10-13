@@ -327,8 +327,9 @@ class LearningModel(torch.nn.Module):
 
     return (loss,self.posOK/self.posTot if self.posTot else 1.0,self.negOK/self.negTot if self.negTot else 1.0)
 
-def get_ancestors(seed,pars):
-  ancestors = set()
+def get_ancestors(seed,pars,**kwargs):
+  ancestors = kwargs.get("known_ancestors",set())
+  # print("Got",len(ancestors))
   todo = [seed]
   while todo:
     cur = todo.pop()
@@ -359,6 +360,7 @@ def load_one(filename):
   selec = set()
   
   empty = None
+  good = set()
   
   depths = defaultdict(int)
   max_depth = 0
@@ -410,13 +412,17 @@ def load_one(filename):
         pass # ingored for now
       elif spl[0] == "e:":
         empty = int(spl[1])
+        
+        # THIS IS THE INCLUSIVE AVATAR STRATEGY; comment out if you only want those empties that really contributed to the final contradiction
+        good = good | get_ancestors(empty,pars,known_ancestors=good)
+        
       elif spl[0] == "f:":
         # fake one more derived clause ("-1") into parents
         empty = -1
         pars[empty] = list(map(int,spl[1].split(",")))
         
         update_depths(id,depths,max_depth)
-  
+          
   assert(empty is not None)
 
   # NOTE: there are some things that should/could be done differently in the future
@@ -435,7 +441,11 @@ def load_one(filename):
   #  all of these good anyway (because we only ever want to err on "the other side")
   #  this whole considiration becomes moot
 
-  good = get_ancestors(empty,pars)
+  # one more goodness-collecting run;
+  # 1) for the sake of the "f"-empty clause
+  # 2) if the corresponding line for the common "e"-empty is commented out, this will collect at least once
+  good = good | get_ancestors(empty,pars,known_ancestors=good)
+
   good = good & selec # proof clauses that were never selected don't count
 
   # TODO: consider learning only from hard problems!
