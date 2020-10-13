@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# load inf_common before torch, so that torch is single threaded
+import inf_common as IC
+
 import torch
 from torch import Tensor
 
@@ -12,7 +15,7 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-import inf_common as IC
+
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -51,10 +54,12 @@ if __name__ == "__main__":
   
   init_len_hist = defaultdict(int)
   sel_len_hist = defaultdict(int)
+  size_hist = defaultdict(int)
   max_depth_hist = defaultdict(int)
   for i,(probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
     init_len_hist[len(init)] += 1
     sel_len_hist[len(selec)] += 1
+    size_hist[len(init)+len(deriv)] += 1
     depths = defaultdict(int)
     max_depth = 0
     print(i,probname,len(init),len(deriv),len(pars),len(selec),len(good))
@@ -81,6 +86,17 @@ if __name__ == "__main__":
   for val,cnt in sorted(sel_len_hist.items()):
     print(val,cnt)
   '''
+  '''
   print("max_depth_hist")
   for val,cnt in sorted(max_depth_hist.items()):
     print(val,cnt)
+  '''
+  print("size_hist")
+  tot = 0
+  sum = 0
+  for val,cnt in sorted(size_hist.items()):
+    sum += val*cnt
+    tot += cnt
+    print(val,cnt)
+
+  print("Average",sum/tot)

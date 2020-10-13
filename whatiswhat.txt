@@ -64,3 +64,6 @@ exporter.py
 data_analyzer.py
 - just an auxiliary script I used to have a look at the TPTP's data_hist.pt,
 suspecting too simple and too deep derivations (which I was discarding in inf_common's load_one in its last version)
+
+compressor.py
+- Some training problems can be grouped together so that they are more evenly sized and parallel graph building pays off.
