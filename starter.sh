@@ -2,7 +2,7 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_defaultStrat 2>&1
+./multi_inf_parallel.py smt4vamp_defaultStrat smt4vamp_defaultStrat/erun48_p8n2_do_so 2>&1
 
 # ./multi_inf_parallel.py smt4vamp_avOff > run144_lr001_p9n1_swout00.txt 2>&1
 

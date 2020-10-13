@@ -92,28 +92,31 @@ if __name__ == "__main__":
   #
   # probably needs to be run with "ulimit -Sn 3000" or something large
   #
-  # To be called as in: ./multi_inf_parallel.py <folder> <initial-model>
+  # To be called as in: ./multi_inf_parallel.py <folder_in> <folder_out> <initial-model>
   #
-  # it expects <folder> to contain "training_data.pt" and "validation_data.pt"
+  # it expects <folder_in> to contain "training_data.pt" and "validation_data.pt"
   # (and maybe also "data_hist.pt")
+  #
   # if <initial-model> is not specified,
-  # it creates a new one in <folder> using the same naming scheme as initializer.py
+  # it creates a new one in <folder_out> using the same naming scheme as initializer.py
+  #
+  # The log, the plot, and intermediate models are also saved in <folder_out>
   
   # global redirect of prints to the just upen "logfile"
-  sys.stdout = open("run"+IC.name_learning_regime_suffix(), 'w')
+  sys.stdout = open("{}/run{}".format(sys.argv[2],IC.name_learning_regime_suffix()), 'w')
   
   train_data_list = torch.load("{}/training_data.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_list))
   valid_data_list = torch.load("{}/validation_data.pt".format(sys.argv[1]))
   print("Loaded valid data:",len(valid_data_list))
   
-  if len(sys.argv) >= 3:
-    master_parts = torch.load(sys.argv[2])
-    print("Loaded model parts",sys.argv[2])
+  if len(sys.argv) >= 4:
+    master_parts = torch.load(sys.argv[3])
+    print("Loaded model parts",sys.argv[3])
   else:
     init_hist,deriv_hist = torch.load("{}/data_hist.pt".format(sys.argv[1]))
     master_parts = IC.get_initial_model(init_hist,deriv_hist)
-    model_name = "{}/initial{}".format(sys.argv[1],IC.name_initial_model_suffix())
+    model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name)
 
@@ -126,7 +129,7 @@ if __name__ == "__main__":
   epoch = 0
 
   # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
-  model_name = "{}/model-epoch{}.pt".format(sys.argv[1],epoch)
+  model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
   torch.save(master_parts,model_name)
 
   parts_copies = [] # have as many copies as processes; they are somehow shared among the processes via Queue, so only one process should touch one at a time
@@ -222,7 +225,7 @@ if __name__ == "__main__":
 
     print()
     print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
-    model_name = "{}/model-epoch{}.pt".format(sys.argv[1],epoch)
+    model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
     print("Saving model to:",model_name)
     torch.save(master_parts,model_name)
 
@@ -264,8 +267,4 @@ if __name__ == "__main__":
     valid_negrates.append(negRate)
 
     # plotting
-    IC.plot_one("plot.png",times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
-
-
-
-
+    IC.plot_one("{}/plot.png".format(sys.argv[2]),times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
