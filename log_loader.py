@@ -39,20 +39,29 @@ if __name__ == "__main__":
       start_time = time.time()
       probdata = IC.load_one(probname)
       if probdata is not None: # None when the problem was Saturated / Satisfiable
-        probdata = IC.compress_prob_data([(probname,probdata)])
-        prob_data_list.append(probdata)
+        prob_data_list.append((probname,probdata))
       print("Took",time.time()-start_time)
 
   print(len(prob_data_list),"problems loaded!")
   print()
 
-  init_hist,deriv_hist = IC.prepare_hists(prob_data_list)
+  init_hist,deriv_hist,axiom_hist = IC.prepare_hists(prob_data_list)
+
+  # We want to use axiom names rather than theory_axiom ids:
+  init_hist,prob_data_list = IC.axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list)
 
   print("init_hist",init_hist)
   print("deriv_hist",deriv_hist)
+
   filename = "{}/data_hist.pt".format(sys.argv[1])
   print("Saving hist to",filename)
   torch.save((init_hist,deriv_hist), filename)
+  print()
+
+  print("Compressing")
+  for i, (probname,(init,deriv,pars,selec,good,axioms)) in enumerate(prob_data_list):
+    print(probname,"init: {}, deriv: {}, select: {}, good: {}".format(len(init),len(deriv),len(selec),len(good)))
+    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,selec,good))])
   print()
 
   random.shuffle(prob_data_list)

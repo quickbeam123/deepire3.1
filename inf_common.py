@@ -359,6 +359,8 @@ def load_one(filename):
   pars : Dict[int, List[int]] = {}
   selec = set()
   
+  axioms : Dict[int, str] = {}
+  
   empty = None
   good = set()
   
@@ -384,7 +386,14 @@ def load_one(filename):
       if spl[0] == "i:":
         val = eval(spl[1])
         assert(val[0] == 1)
-        init.append((val[1],abstract_initial(val[2:])))
+        id = val[1]
+        init.append((id,abstract_initial(val[2:])))
+        
+        goal = val[-3]
+        
+        if len(spl) > 2 and not goal: # axiom name reported and this is not a conjecture clause
+          axioms[id] = spl[2]
+          
       elif spl[0] == "d:":
         # d: [2,cl_id,age,weight,len,num_splits,rule,par1,par2,...]
         val = eval(spl[1])
@@ -421,7 +430,7 @@ def load_one(filename):
         empty = -1
         pars[empty] = list(map(int,spl[1].split(",")))
         
-        update_depths(id,depths,max_depth)
+        update_depths(empty,depths,max_depth)
           
   assert(empty is not None)
 
@@ -462,15 +471,16 @@ def load_one(filename):
     return None
   '''
 
-  print("init: {}, deriv: {}, select: {}, good: {}".format(len(init),len(deriv),len(selec),len(good)))
+  print("init: {}, deriv: {}, select: {}, good: {}, axioms: {}".format(len(init),len(deriv),len(selec),len(good),len(axioms)))
 
-  return (init,deriv,pars,selec,good)
+  return (init,deriv,pars,selec,good,axioms)
 
 def prepare_hists(prob_data_list):
   init_hist = defaultdict(int)
   deriv_hist = defaultdict(int)
+  axiom_hist = defaultdict(int)
 
-  for probname, (init,deriv,pars,selec,good) in prob_data_list:
+  for probname, (init,deriv,pars,selec,good,axioms) in prob_data_list:
     for id, features in init:
       # already abstracted
       thax = features
@@ -491,8 +501,42 @@ def prepare_hists(prob_data_list):
     # make sure we have arity 1 and 2 defaults
     deriv_hist[(1,1)] += 1
     deriv_hist[(2,2)] += 1
+  
+    for id,ax in axioms.items():
+      axiom_hist[ax] += 1
 
-  return (init_hist,deriv_hist)
+  return (init_hist,deriv_hist,axiom_hist)
+
+def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
+  # (we didn't parse anything than 0 and -1 anyway:)
+  assert(0 in init_hist and (len(init_hist) == 1 or len(init_hist) == 2 and -1 in init_hist))
+  
+  new_prob_data_list = []
+  
+  ax_idx = {}
+  good_ax_cnt = 0
+  for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
+    # print(ax,num)
+    
+    if num >= 10: # change this constant to get something reasonable
+      good_ax_cnt += 1
+      ax_idx[ax] = good_ax_cnt
+      print(ax,"is",good_ax_cnt)
+
+  for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
+    new_init = []
+    for id, features in init:
+      # already abstracted
+      thax = features
+      if thax == 0: # don't name the conjecture
+        if id in axioms and axioms[id] in ax_idx:
+          thax = ax_idx[axioms[id]]
+      new_init.append((id,thax))
+      init_hist[thax] += 1
+
+    new_prob_data_list.append((probname,(new_init,deriv,pars,selec,good,axioms)))
+
+  return init_hist,new_prob_data_list
 
 def normalize_prob_data(prob_data):
   # 1) it's better to have them in a list (for random.choice)
