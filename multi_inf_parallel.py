@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 5
+NUMPROCESSES = 20
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -165,8 +165,10 @@ if __name__ == "__main__":
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
    
+    '''
     if epoch > 200:
       exit(0)
+    '''
     
     times.append(epoch)
     
@@ -209,7 +211,7 @@ if __name__ == "__main__":
         (probname,data) = train_data_list[idx]
         copy_parts_and_zero_grad_in_copy(master_parts,parts_copy)
         t += 1
-        print("Time",t,"starting training job on problem",idx,probname,"size",len(data[-2]))
+        print("Time",t,"starting training job on problem",idx,probname,"size",len(data[0])+len(data[1]))
         print()
         q_in.put((idx,parts_copy,data,True)) # True stands for "training is on"
 

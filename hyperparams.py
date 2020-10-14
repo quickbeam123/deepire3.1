@@ -7,7 +7,7 @@ import torch
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 48
+EMBED_SIZE = 256
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -74,5 +74,5 @@ TRR = TestRiskRegimen_OVERFIT
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
-POS_BIAS = 0.8
-NEG_BIAS = 0.2
+POS_BIAS = 3.0
+NEG_BIAS = 1.0

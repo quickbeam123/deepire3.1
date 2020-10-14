@@ -454,7 +454,6 @@ def load_one(filename):
   # 1) for the sake of the "f"-empty clause
   # 2) if the corresponding line for the common "e"-empty is commented out, this will collect at least once
   good = good | get_ancestors(empty,pars,known_ancestors=good)
-
   good = good & selec # proof clauses that were never selected don't count
 
   # TODO: consider learning only from hard problems!
