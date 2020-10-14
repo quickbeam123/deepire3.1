@@ -48,17 +48,19 @@ if __name__ == "__main__":
   init_hist,deriv_hist,axiom_hist = IC.prepare_hists(prob_data_list)
 
   # We want to use axiom names rather than theory_axiom ids:
-  init_hist,prob_data_list = IC.axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list)
+  init_hist,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list)
+  # else
+  # thax_to_str = {}
 
   print("init_hist",init_hist)
   print("deriv_hist",deriv_hist)
 
   filename = "{}/data_hist.pt".format(sys.argv[1])
   print("Saving hist to",filename)
-  torch.save((init_hist,deriv_hist), filename)
+  torch.save((init_hist,deriv_hist,thax_to_str), filename)
   print()
 
-  print("Compressing")
+  print("Compressing (and dropping info about axioms)")
   for i, (probname,(init,deriv,pars,selec,good,axioms)) in enumerate(prob_data_list):
     print(probname,"init: {}, deriv: {}, select: {}, good: {}".format(len(init),len(deriv),len(selec),len(good)))
     prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,selec,good))])

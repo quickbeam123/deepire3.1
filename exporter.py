@@ -27,10 +27,10 @@ if __name__ == "__main__":
 
   # inf_41_Tanh_p0.9905907013270361_n0.6047052650764457.pt
 
-  init_hist,deriv_hist = torch.load(sys.argv[1])
+  init_hist,deriv_hist,thax_to_str = torch.load(sys.argv[1])
   print("Loaded hist from",sys.argv[1])
 
-  IC.create_saver(init_hist,deriv_hist)
+  IC.create_saver(init_hist,deriv_hist,thax_to_str)
   import inf_saver as IS
 
   parts = torch.load(sys.argv[2])

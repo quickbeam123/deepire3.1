@@ -199,7 +199,7 @@ bigpart4 = '''    eval_net
     ))
   module.save(name)'''
 
-def create_saver(init_hist,deriv_hist):
+def create_saver(init_hist,deriv_hist,thax_to_str):
   with open("inf_saver.py","w") as f:
     print(bigpart1,file=f)
 
@@ -227,7 +227,7 @@ def create_saver(init_hist,deriv_hist):
 
     for i in sorted(init_hist):
       if i > 0:
-        print(bigpart_rec1.format(str(i),str(i)),file=f)
+        print(bigpart_rec1.format(thax_to_str[i] if i in thax_to_str else str(i),str(i)),file=f)
 
     for (rule,arit) in sorted(deriv_hist):
       if rule < 666: # avatar done differently in bigpart3
@@ -514,6 +514,7 @@ def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
   new_prob_data_list = []
   
   ax_idx = {}
+  thax_to_str = {}
   good_ax_cnt = 0
   for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
     # print(ax,num)
@@ -521,6 +522,7 @@ def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
     if num >= 10: # change this constant to get something reasonable
       good_ax_cnt += 1
       ax_idx[ax] = good_ax_cnt
+      thax_to_str[good_ax_cnt] = ax
       print(ax,"is",good_ax_cnt)
 
   for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
@@ -536,7 +538,7 @@ def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
 
     new_prob_data_list.append((probname,(new_init,deriv,pars,selec,good,axioms)))
 
-  return init_hist,new_prob_data_list
+  return init_hist,new_prob_data_list,thax_to_str
 
 def normalize_prob_data(prob_data):
   # 1) it's better to have them in a list (for random.choice)

@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 15
+NUMPROCESSES = 5
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -77,7 +77,7 @@ def eval_and_or_learn_on_one(myparts,data,training):
 def worker(q_in, q_out):
   while True:
     (idx,myparts,data,training) = q_in.get()
-    print("Child",os.getpid(),"has",idx)
+    # print("Child",os.getpid(),"has",idx)
     (loss,posRate,negRate,myparts) = eval_and_or_learn_on_one(myparts,data,training)
     q_out.put((idx,loss,posRate,negRate,myparts))
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     master_parts = torch.load(sys.argv[3])
     print("Loaded model parts",sys.argv[3])
   else:
-    init_hist,deriv_hist = torch.load("{}/data_hist.pt".format(sys.argv[1]))
+    init_hist,deriv_hist,thax_to_str = torch.load("{}/data_hist.pt".format(sys.argv[1]))
     master_parts = IC.get_initial_model(init_hist,deriv_hist)
     model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
     torch.save(master_parts,model_name)

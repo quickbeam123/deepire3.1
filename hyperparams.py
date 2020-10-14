@@ -69,9 +69,9 @@ def TestRiskRegimenName(val):
   elif val == TestRiskRegimen_OVERFIT:
     return "OVERFIT"
 
-TRR = TestRiskRegimen_VALIDATE
+TRR = TestRiskRegimen_OVERFIT
 
-SWAPOUT = 0.1
+SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
 POS_BIAS = 0.8
