@@ -12,6 +12,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import torch
 from torch import Tensor
+
+torch.set_num_threads(1)
+
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import sys,random

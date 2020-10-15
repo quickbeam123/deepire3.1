@@ -29,6 +29,14 @@ if __name__ == "__main__":
   prob_data_list = torch.load(sys.argv[1]) # [ probname, (init,deriv,pars,selec,good)]
   
   '''
+  for i,(probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+    what = "small_np/" + probname.split("/")[-1][9:-4]
+    print(what)
+  
+  exit(0)
+  '''
+  
+  '''
   i = 208
 
   (probname,(init,deriv,pars,selec,good)) = prob_data_list[i]

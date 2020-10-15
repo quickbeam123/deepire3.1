@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 15
+NUMPROCESSES = 10
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -83,10 +83,14 @@ def eval_and_or_learn_on_one(myparts,data,training):
 
   return (loss[0].item(),posRate,negRate,myparts)
 
+global common_data
+common_data = None
+
 def worker(q_in, q_out):
+  global common_data
   while True:
-    (idx,myparts,data,training) = q_in.get()
-    # print("Child",os.getpid(),"has",idx)
+    (idx,myparts,training) = q_in.get()
+    probname, data = common_data[training][idx]
     (loss,posRate,negRate,myparts) = eval_and_or_learn_on_one(myparts,data,training)
     q_out.put((idx,loss,posRate,negRate,myparts))
 
@@ -119,6 +123,8 @@ if __name__ == "__main__":
   valid_data_list = torch.load("{}/validation_data.pt".format(sys.argv[1]))
   print("Loaded valid data:",len(valid_data_list))
   
+  common_data = [valid_data_list,train_data_list]
+  
   if len(sys.argv) >= 4:
     master_parts = torch.load(sys.argv[3])
     print("Loaded model parts",sys.argv[3])
@@ -141,8 +147,10 @@ if __name__ == "__main__":
   model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
   torch.save(master_parts,model_name)
 
-  parts_copies = [] # have as many copies as processes; they are somehow shared among the processes via Queue, so only one process should touch one at a time
-  for i in range(NUMPROCESSES):
+  NUM_ACTIVE_TASKS = NUMPROCESSES
+
+  parts_copies = [] # have as many copies as NUM_ACTIVE_TASKS; they are somehow shared among the processes via Queue, so only one process should touch one at a time
+  for i in range(NUM_ACTIVE_TASKS):
     parts_copies.append(torch.load(model_name)) # currently, don't know how to reliably deep-copy in memory (with pickling, all seems fine)
 
   q_in = torch.multiprocessing.Queue()
@@ -209,7 +217,7 @@ if __name__ == "__main__":
       feed_sequence += epoch_bit
   
     # training on each problem in these EPOCHS_BEFORE_VALIDATION-many epochs
-    while feed_sequence or len(parts_copies) < NUMPROCESSES:
+    while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
       # we use parts_copies as a counter of idle children in the pool
       while parts_copies and feed_sequence:
         parts_copy = parts_copies.pop()
@@ -220,7 +228,7 @@ if __name__ == "__main__":
         t += 1
         print("Time",t,"starting training job on problem",idx,probname,"size",len(data[0])+len(data[1]))
         print()
-        q_in.put((idx,parts_copy,data,True)) # True stands for "training is on"
+        q_in.put((idx,parts_copy,True)) # True stands for "training is on"
 
       (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
@@ -247,7 +255,7 @@ if __name__ == "__main__":
     train_negrates.append(negRate)
 
     feed_sequence = list(range(len(valid_data_list)))
-    while feed_sequence or len(parts_copies) < NUMPROCESSES:
+    while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
       # we use parts_copies as a counter of idle children in the pool
       while parts_copies and feed_sequence:
         parts_copy = parts_copies.pop()
@@ -258,7 +266,7 @@ if __name__ == "__main__":
         t += 1
         print("Time",t,"starting validation job on problem",idx,probname,"size",len(data[-2]))
         print()
-        q_in.put((idx,parts_copy,data,False)) # False stands for "training is off"
+        q_in.put((idx,parts_copy,False)) # False stands for "training is off"
 
       (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again

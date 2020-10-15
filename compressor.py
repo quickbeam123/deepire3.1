@@ -21,10 +21,10 @@ if __name__ == "__main__":
   # 1) conj, user_ax, theory_ax_kind in the leaves
   # 2) what inference leads to this in the tree nodes
   #
-  # To be called as in: ./data_analyzer.py data_hist.pt training_data.pt <compressed_data_file_name>
+  # To be called as in: ./data_analyzer.py data_sign.pt training_data.pt <compressed_data_file_name>
 
-  init_hist,deriv_hist = torch.load(sys.argv[1])
-  parts = IC.get_initial_model(init_hist,deriv_hist)
+  init_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
+  parts = IC.get_initial_model(init_sign,deriv_arits)
 
   prob_data_list = torch.load(sys.argv[2]) # [ probname, (init,deriv,pars,selec,good)]
   
