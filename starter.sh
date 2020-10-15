@@ -2,7 +2,9 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_defaultStrat smt4vamp_defaultStrat/erun256_p3n1_do_overfit 2>&1
+./multi_inf_parallel.py mizar_strat1/avE mizar_strat1/avE/run128_p4n1_do 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_defaultStrat smt4vamp_defaultStrat/erun256_p3n1_do_overfit 2>&1
 
 # ./multi_inf_parallel.py smt4vamp_avOff > run144_lr001_p9n1_swout00.txt 2>&1
 

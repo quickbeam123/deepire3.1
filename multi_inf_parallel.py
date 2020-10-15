@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 20
+NUMPROCESSES = 15
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -51,7 +51,12 @@ def eval_and_or_learn_on_one(myparts,data,training):
   # probname = prob_data_list[idx][0]
   # data = prob_data_list[idx][1]
   (init,deriv,pars,selec,good) = data
+  
+  # print("Datum of size",len(init)+len(deriv))
+  
   model = IC.LearningModel(*myparts,init,deriv,pars,selec,good)
+  
+  # print("Model created")
   
   if training:
     model.train()
@@ -59,6 +64,8 @@ def eval_and_or_learn_on_one(myparts,data,training):
     model.eval()
   
   (loss,posRate,negRate) = model()
+  
+  # print("Model evaluated")
   
   if training:
     loss.backward()
@@ -71,7 +78,9 @@ def eval_and_or_learn_on_one(myparts,data,training):
       else:
         param.zero_()
       param.requires_grad = True # to be ready for the next learning when assigned to a new job
-  
+
+    # print("Training finished")
+
   return (loss[0].item(),posRate,negRate,myparts)
 
 def worker(q_in, q_out):
@@ -114,8 +123,8 @@ if __name__ == "__main__":
     master_parts = torch.load(sys.argv[3])
     print("Loaded model parts",sys.argv[3])
   else:
-    init_hist,deriv_hist,thax_to_str = torch.load("{}/data_hist.pt".format(sys.argv[1]))
-    master_parts = IC.get_initial_model(init_hist,deriv_hist)
+    init_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+    master_parts = IC.get_initial_model(init_sign,deriv_arits)
     model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name)
@@ -165,10 +174,8 @@ if __name__ == "__main__":
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
    
-    '''
-    if epoch > 200:
+    if epoch > 300:
       exit(0)
-    '''
     
     times.append(epoch)
     

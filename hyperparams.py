@@ -7,7 +7,7 @@ import torch
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 256
+EMBED_SIZE = 128
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -69,10 +69,10 @@ def TestRiskRegimenName(val):
   elif val == TestRiskRegimen_OVERFIT:
     return "OVERFIT"
 
-TRR = TestRiskRegimen_OVERFIT
+TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
-POS_BIAS = 3.0
+POS_BIAS = 4.0
 NEG_BIAS = 1.0

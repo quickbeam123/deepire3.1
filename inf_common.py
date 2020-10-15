@@ -59,7 +59,7 @@ class CatAndNonLinear(torch.nn.Module):
     else:
       self.epilog = torch.nn.Identity(dim)
 
-  def forward(self,args : List[Tensor]) -> Tensor:
+  def forward_impl(self,args : List[Tensor]) -> Tensor:
     x = torch.cat(args)
     
     x = self.prolog(x)
@@ -78,22 +78,48 @@ class CatAndNonLinear(torch.nn.Module):
     x = self.epilog(x)
 
     return x
+    
+  # this whole method is bogus, just to make torch.jit.script happy
+  def forward(self,args : List[Tensor]) -> Tensor:
+    return args[0]
 
-def get_initial_model(init_hist,deriv_hist):
+class CatAndNonLinearBinary(CatAndNonLinear):
+  def forward(self,args : List[Tensor]) -> Tensor:
+    return self.forward_impl(args)
+
+class CatAndNonLinearMultiary(CatAndNonLinear):
+  def forward(self,args : List[Tensor]) -> Tensor:
+    i = 0
+    while True:
+      pair = args[i:i+2]
+      
+      if len(pair) == 2:
+        args.append(self.forward_impl(pair))
+        i += 2
+      else:
+        assert(len(pair) == 1)
+        return pair[0]
+    return args[0] # this is bogus, just to make torch.jit.script happy
+
+def get_initial_model(init_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
-  assert(-1 in init_hist) # to have conjecture embedding
-  assert(0 in init_hist)  # to have user-fla embedding
-  for i in init_hist:
+  assert(-1 in init_sign) # to have conjecture embedding
+  assert(0 in init_sign)  # to have user-fla embedding
+  for i in init_sign:
     init_embeds[str(i)] = Embed(HP.EMBED_SIZE)
 
   # to have the arity 1 and 2 defaults
   # NOTE: 1 and 2 don't conflict with proper rule indexes
-  assert((1,1) in deriv_hist)
-  assert((2,2) in deriv_hist)
+  assert(deriv_arits[1] == 1)
+  assert(deriv_arits[2] == 2)
 
   deriv_mlps = torch.nn.ModuleDict()
-  for (rule,arit) in deriv_hist:
-    deriv_mlps[str(rule)] = CatAndNonLinear(HP.EMBED_SIZE,arit)
+  for rule,arit in deriv_arits.items():
+    if arit <= 2:
+      deriv_mlps[str(rule)] = CatAndNonLinearBinary(HP.EMBED_SIZE,arit)
+    else:
+      assert(arit == 3)
+      deriv_mlps[str(rule)] = CatAndNonLinearMultiary(HP.EMBED_SIZE,2) # binary tree builder
   
   if HP.EVAL_LAYER == HP.EvalLayerKind_LINEAR:
     eval_net = torch.nn.Sequential(
@@ -199,48 +225,48 @@ bigpart4 = '''    eval_net
     ))
   module.save(name)'''
 
-def create_saver(init_hist,deriv_hist,thax_to_str):
+def create_saver(init_sign,deriv_arits,thax_to_str):
   with open("inf_saver.py","w") as f:
     print(bigpart1,file=f)
 
-    for i in sorted(init_hist):
+    for i in sorted(init_sign):
       if i > 0: # the other ones are already there
         print("        init_{} : torch.nn.Module,".format(i),file=f)
 
-    for (rule,arit) in sorted(deriv_hist):
+    for rule in sorted(deriv_arits):
       print("        deriv_{} : torch.nn.Module,".format(rule),file=f)
 
     print(bigpart2,file=f)
 
-    for i in sorted(init_hist):
+    for i in sorted(init_sign):
       if i > 0:
         print("      self.init_{} = init_{}".format(i,i),file=f)
 
     print("      self.deriv_1 = deriv_1",file=f)
     print("      self.deriv_2 = deriv_2",file=f)
-    for (rule,arit) in sorted(deriv_hist):
+    for rule in sorted(deriv_arits):
       print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
     print("      self.eval_net = eval_net",file=f)
 
     print(bigpart_rec1.format("G","G"),file=f)
     print(bigpart_rec1.format("0","0"),file=f)
 
-    for i in sorted(init_hist):
+    for i in sorted(init_sign):
       if i > 0:
         print(bigpart_rec1.format(thax_to_str[i] if i in thax_to_str else str(i),str(i)),file=f)
 
-    for (rule,arit) in sorted(deriv_hist):
+    for rule in sorted(deriv_arits):
       if rule < 666: # avatar done differently in bigpart3
         print(bigpart_rec2.format(str(rule),str(rule)),file=f)
 
-    if (666,1) in deriv_hist:
+    if 666 in deriv_arits:
       print(bigpart_avat,file=f)
 
     print(bigpart3,file=f)
-    for i in sorted(init_hist):
+    for i in sorted(init_sign):
       if i > 0: # the other ones are already there
         print("    init_embeds['{}'],".format(i),file=f)
-    for (rule,arit) in sorted(deriv_hist):
+    for rule in sorted(deriv_arits):
       print("    deriv_mlps['{}'],".format(rule),file=f)
     print(bigpart4,file=f)
 
@@ -351,7 +377,7 @@ def abstract_deriv(features):
   rule = features[-1]
   return rule
 
-def load_one(filename):
+def load_one(filename,max_size = None):
   print("Loading",filename)
 
   init : List[Tuple[int, Tuple[int, int, int, int, int, int]]] = []
@@ -376,6 +402,9 @@ def load_one(filename):
 
   with open(filename,'r') as f:
     for line in f:
+      if max_size and len(init)+len(deriv) > max_size:
+        return None
+      
       # print(line)
       if line.startswith("% Refutation found."):
         break
@@ -423,7 +452,7 @@ def load_one(filename):
         empty = int(spl[1])
         
         # THIS IS THE INCLUSIVE AVATAR STRATEGY; comment out if you only want those empties that really contributed to the final contradiction
-        good = good | get_ancestors(empty,pars,known_ancestors=good)
+        # good = good | get_ancestors(empty,pars,known_ancestors=good)
         
       elif spl[0] == "f:":
         # fake one more derived clause ("-1") into parents
@@ -474,41 +503,46 @@ def load_one(filename):
 
   return (init,deriv,pars,selec,good,axioms)
 
-def prepare_hists(prob_data_list):
-  init_hist = defaultdict(int)
-  deriv_hist = defaultdict(int)
+def prepare_signature(prob_data_list):
+  init_sign = set()
+  deriv_arits = {}
   axiom_hist = defaultdict(int)
 
   for probname, (init,deriv,pars,selec,good,axioms) in prob_data_list:
     for id, features in init:
       # already abstracted
       thax = features
-      init_hist[thax] += 1
+      init_sign.add(thax)
 
     # make sure we have 0 - the default embedding ...
-    init_hist[0] += 1
+    init_sign.add(0)
     # ... and -1, the conjecture one (although no conjecture in smtlib!)
-    init_hist[-1] += 1
+    init_sign.add(-1)
 
     for id, features in deriv:
       # already abstracted
       rule = features
       arit = len(pars[id])
 
-      deriv_hist[(rule,arit)] += 1 # rule always implies a fixed arity (hmm, maybe not for global_sumbsumption)
+      if arit > 2:
+        deriv_arits[rule] = 3 # the multi-ary way
+      elif rule in deriv_arits and deriv_arits[rule] != arit:
+        deriv_arits[rule] = 3 # mixing 1 and 2?
+      else:
+        deriv_arits[rule] = arit
 
     # make sure we have arity 1 and 2 defaults
-    deriv_hist[(1,1)] += 1
-    deriv_hist[(2,2)] += 1
+    deriv_arits[1] = 1
+    deriv_arits[2] = 2
   
     for id,ax in axioms.items():
       axiom_hist[ax] += 1
 
-  return (init_hist,deriv_hist,axiom_hist)
+  return (init_sign,deriv_arits,axiom_hist)
 
-def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
+def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list):
   # (we didn't parse anything than 0 and -1 anyway:)
-  assert(0 in init_hist and (len(init_hist) == 1 or len(init_hist) == 2 and -1 in init_hist))
+  assert(0 in init_sign and (len(init_sign) == 1 or len(init_sign) == 2 and -1 in init_sign))
   
   new_prob_data_list = []
   
@@ -518,11 +552,11 @@ def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
   for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
     # print(ax,num)
     
-    if num >= 10: # change this constant to get something reasonable
+    if num >= 100: # change this constant to get something reasonable
       good_ax_cnt += 1
       ax_idx[ax] = good_ax_cnt
       thax_to_str[good_ax_cnt] = ax
-      print(ax,"is",good_ax_cnt)
+      # print(ax,"is",good_ax_cnt)
 
   for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
     new_init = []
@@ -533,11 +567,11 @@ def axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list):
         if id in axioms and axioms[id] in ax_idx:
           thax = ax_idx[axioms[id]]
       new_init.append((id,thax))
-      init_hist[thax] += 1
+      init_sign.add(thax)
 
     new_prob_data_list.append((probname,(new_init,deriv,pars,selec,good,axioms)))
 
-  return init_hist,new_prob_data_list,thax_to_str
+  return init_sign,new_prob_data_list,thax_to_str
 
 def normalize_prob_data(prob_data):
   # 1) it's better to have them in a list (for random.choice)

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import inf_common as IC
+
 import torch
 from torch import Tensor
 
@@ -12,7 +14,16 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-import inf_common as IC
+from multiprocessing import Pool
+
+def load_one(task):
+  i,probname = task
+  
+  print(i)
+  start_time = time.time()
+  probdata = IC.load_one(probname,max_size=15000)
+  print("Took",time.time()-start_time)
+  return probdata
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -31,33 +42,58 @@ if __name__ == "__main__":
   # data_hist.pt training_data.pt validation_data.pt are created in <folder>
 
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
+
+  '''
+  tasks = []
+  with open(sys.argv[2],"r") as f:
+    for i,line in enumerate(f):
+      if i >= 1000:
+        break
+      probname = line[:-1]
+      tasks.append((i,probname))
+  pool = Pool(processes=50)
+  results = pool.map(load_one, tasks, chunksize = 100)
+  prob_data_list = list(filter(None, results))
+  '''
   
+  prob_data_list = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
       probname = line[:-1]
-      print(i)
-      start_time = time.time()
-      probdata = IC.load_one(probname)
-      if probdata is not None: # None when the problem was Saturated / Satisfiable
+      probdata = load_one((i,probname))
+      if probdata is not None:
         prob_data_list.append((probname,probdata))
-      print("Took",time.time()-start_time)
+      if len(prob_data_list) >= 1000:
+        break
 
   print(len(prob_data_list),"problems loaded!")
   print()
 
-  init_hist,deriv_hist,axiom_hist = IC.prepare_hists(prob_data_list)
+  '''
+  filename = "{}/raw_prob_data_list.pt".format(sys.argv[1])
+  torch.save(prob_data_list, filename)
+  '''
+  
+  '''
+  filename = "{}/raw_prob_data_list.pt".format(sys.argv[1])
+  prob_data_list = torch.load(filename)
+  '''
 
-  # We want to use axiom names rather than theory_axiom ids:
-  init_hist,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_hist,axiom_hist,prob_data_list)
-  # else
-  # thax_to_str = {}
+  init_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
-  print("init_hist",init_hist)
-  print("deriv_hist",deriv_hist)
+  if True: # We want to use axiom names rather than theory_axiom ids:
+    init_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list)
+  else:
+    thax_to_str = {}
 
-  filename = "{}/data_hist.pt".format(sys.argv[1])
-  print("Saving hist to",filename)
-  torch.save((init_hist,deriv_hist,thax_to_str), filename)
+  print("init_sign",init_sign)
+  print("deriv_arits",deriv_arits)
+  #print("axiom_hist",axiom_hist)
+  print("thax_to_str",thax_to_str)
+
+  filename = "{}/data_sign.pt".format(sys.argv[1])
+  print("Saving singature to",filename)
+  torch.save((init_sign,deriv_arits,thax_to_str), filename)
   print()
 
   print("Compressing (and dropping info about axioms)")

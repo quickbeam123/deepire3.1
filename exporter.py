@@ -23,14 +23,14 @@ if __name__ == "__main__":
   #
   # Load data_hist.pt and trained model; export a torchscript model version of it to argv[3]
   #
-  # To be called as in: ./exporter.py enigma_smt_447/data_hist.pt enigma_smt_447/models14/inf_14_Tanh_p0.9791753101758176_n0.5020857886700685.pt enigma_smt_447/model_14Tanh_best.pt
+  # To be called as in: ./exporter.py enigma_smt_447/data_sign.pt enigma_smt_447/models14/inf_14_Tanh_p0.9791753101758176_n0.5020857886700685.pt enigma_smt_447/model_14Tanh_best.pt
 
   # inf_41_Tanh_p0.9905907013270361_n0.6047052650764457.pt
 
-  init_hist,deriv_hist,thax_to_str = torch.load(sys.argv[1])
-  print("Loaded hist from",sys.argv[1])
+  init_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
+  print("Loaded signature from",sys.argv[1])
 
-  IC.create_saver(init_hist,deriv_hist,thax_to_str)
+  IC.create_saver(init_sign,deriv_arits,thax_to_str)
   import inf_saver as IS
 
   parts = torch.load(sys.argv[2])
