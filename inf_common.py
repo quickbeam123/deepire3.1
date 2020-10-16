@@ -195,9 +195,9 @@ bigpart2 ='''        eval_net : torch.nn.Module):
       
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
-    def forward(self, id: int) -> bool:
+    def forward(self, id: int) -> float:
       val = self.eval_net(self.store[id])
-      return val[0].item() >= 0.0
+      return val[0].item()
 
     @torch.jit.export
     def new_init(self, id: int, features : Tuple[int, int, int, int, int, int], name: str) -> None:
