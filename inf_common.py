@@ -279,43 +279,39 @@ class LearningModel(torch.nn.Module):
       init_embeds : torch.nn.ModuleDict,
       deriv_mlps : torch.nn.ModuleDict,
       eval_net : torch.nn.Module,
-      init,deriv,pars,selec,good):
+      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg):
     super(LearningModel,self).__init__()
   
     self.init_embeds = init_embeds
     self.deriv_mlps = deriv_mlps
     self.eval_net = eval_net
     
-    self.criterion = torch.nn.BCEWithLogitsLoss()
-  
     self.init = init
     self.deriv = deriv
     self.pars = pars
-    self.selec = selec
-    self.good = good
+    self.pos_vals = pos_vals
+    self.neg_vals = neg_vals
   
-    self.pos_weight = HP.POS_BIAS/len(good) if len(good) else 1.0
-    self.neg_weight = HP.NEG_BIAS/(len(selec)-len(good)) if (len(selec)-len(good)) else 1.0
+    pos_weight = HP.POS_BIAS/tot_pos if tot_pos > 0.0 else 1.0
+    neg_weight = HP.NEG_BIAS/tot_neg if tot_neg > 0.0 else 1.0
+    
+    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight/neg_weight]))
   
   def contribute(self, id: int, embed : Tensor):
     val = self.eval_net(embed)
     
-    if id in self.good:
-      self.posTot += 1
-      if val[0].item() >= 0.0:
-        self.posOK += 1
-      
-      gold = torch.tensor([1.0])
-      weight = self.pos_weight
+    pos = self.pos_vals[id]
+    neg = self.neg_vals[id]
+    
+    self.posTot += pos
+    self.negTot += neg
+    
+    if val[0].item() >= 0.0:
+      self.posOK += pos
     else:
-      self.negTot += 1
-      if val[0].item() < 0.0:
-        self.negOK += 1
-      
-      gold = torch.tensor([0.0])
-      weight = self.neg_weight
-
-    return weight*self.criterion(val,gold)
+      self.negOK += neg
+    
+    return (pos+neg)*self.criterion(val,torch.tensor([pos/(pos+neg)]))
 
   # Construct the whole graph and return its loss
   # TODO: can we keep the graph after an update?
@@ -336,7 +332,7 @@ class LearningModel(torch.nn.Module):
         embed = self.init_embeds[str(thax)]()
       
       store[id] = embed
-      if id in self.selec: # was selected, will contribute to loss
+      if id in self.pos_vals or id in self.neg_vals:
         loss += self.contribute(id,embed)
     
     for id, rule in self.deriv:
@@ -351,7 +347,7 @@ class LearningModel(torch.nn.Module):
         embed = self.deriv_mlps[str(rule)](par_embeds)
       
       store[id] = embed
-      if id in self.selec: # was selected, will contribute to loss
+      if id in self.pos_vals or id in self.neg_vals:
         loss += self.contribute(id,embed)
 
     return (loss,self.posOK/self.posTot if self.posTot else 1.0,self.negOK/self.negTot if self.negTot else 1.0)
@@ -638,10 +634,12 @@ def compress_prob_data(some_probs):
   out_init = []
   out_deriv = []
   out_pars = {}
-  out_selec = set()
-  out_good = set()
+  out_pos_vals = defaultdict(float)
+  out_neg_vals = defaultdict(float)
+  out_tot_pos = 0.0
+  out_tot_neg = 0.0
 
-  for probname, (init,deriv,pars,selec,good) in some_probs:
+  for probname, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in some_probs:
     # reset for evey problem in the list
     old2new = {} # maps old_id to new_id (this is the not-necessarily-injective map)
   
@@ -667,11 +665,6 @@ def compress_prob_data(some_probs):
 
       old2new[old_id] = new_id
 
-      if old_id in selec: # union of selects
-        out_selec.add(new_id)
-      if old_id in good:  # union of goods (we don't care it was bad some other time)
-        out_good.add(new_id)
-
     for old_id, features in deriv:
       # already abstracted
       rule = features
@@ -693,13 +686,16 @@ def compress_prob_data(some_probs):
 
       old2new[old_id] = new_id
 
-      if old_id in selec: # union of selects
-        out_selec.add(new_id)
-      if old_id in good:  # union of goods (we don't care it was bad some other time)
-        out_good.add(new_id)
+    for old_id,val in pos_vals.items():
+      out_pos_vals[old2new[old_id]] += val
+    for old_id,val in neg_vals.items():
+      out_neg_vals[old2new[old_id]] += val
 
-  print("Compressed to",len(out_init),len(out_deriv),len(out_pars),len(out_selec),len(out_good))
-  return out_probname, (out_init,out_deriv,out_pars,out_selec,out_good)
+    out_tot_pos += tot_pos
+    out_tot_neg += tot_neg
+
+  print("Compressed to",len(out_init),len(out_deriv),len(out_pars),len(pos_vals),len(neg_vals),out_tot_pos,out_tot_neg)
+  return out_probname, (out_init,out_deriv,out_pars,out_pos_vals,out_neg_vals,out_tot_pos,out_tot_neg)
 
 def big_data_prob(prob_data_list):
   # compute the big graph union - currently unused - was too big to use at once

@@ -29,7 +29,7 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 10
+NUMPROCESSES = 15
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -50,11 +50,11 @@ def copy_grads_back_from_param(parts,parts_copies):
 def eval_and_or_learn_on_one(myparts,data,training):
   # probname = prob_data_list[idx][0]
   # data = prob_data_list[idx][1]
-  (init,deriv,pars,selec,good) = data
+  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
   
   # print("Datum of size",len(init)+len(deriv))
   
-  model = IC.LearningModel(*myparts,init,deriv,pars,selec,good)
+  model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
   
   # print("Model created")
   
@@ -264,7 +264,7 @@ if __name__ == "__main__":
         (probname,data) = valid_data_list[idx]
         copy_parts_and_zero_grad_in_copy(master_parts,parts_copy)
         t += 1
-        print("Time",t,"starting validation job on problem",idx,probname,"size",len(data[-2]))
+        print("Time",t,"starting validation job on problem",idx,probname,"size",len(data[0])+len(data[1]))
         print()
         q_in.put((idx,parts_copy,False)) # False stands for "training is off"
 

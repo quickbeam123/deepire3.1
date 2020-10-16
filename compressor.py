@@ -35,10 +35,10 @@ if __name__ == "__main__":
   
   size_and_prob = []
   
-  for i,(probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+  for i,(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     size = len(init)+len(deriv)
     
-    size_and_prob.append((size,(probname,(init,deriv,pars,selec,good))))
+    size_and_prob.append((size,(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
     
     size_hist[len(init)+len(deriv)] += 1
     # print(i,probname,size)
@@ -105,7 +105,7 @@ if __name__ == "__main__":
       print("friend_size",friend_size)
 
       my_rest = IC.compress_prob_data([my_rest,friend_rest])
-      probname, (init,deriv,pars,selec,good) = my_rest
+      probname, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = my_rest
       size = len(init)+len(deriv)
     
       print("aftermerge",size)

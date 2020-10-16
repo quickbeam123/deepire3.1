@@ -63,6 +63,7 @@ if __name__ == "__main__":
       probdata = load_one((i,probname))
       if probdata is not None:
         prob_data_list.append((probname,probdata))
+      
       if len(prob_data_list) >= 1000:
         break
 
@@ -96,11 +97,68 @@ if __name__ == "__main__":
   torch.save((init_sign,deriv_arits,thax_to_str), filename)
   print()
 
-  print("Compressing (and dropping info about axioms)")
-  for i, (probname,(init,deriv,pars,selec,good,axioms)) in enumerate(prob_data_list):
-    print(probname,"init: {}, deriv: {}, select: {}, good: {}".format(len(init),len(deriv),len(selec),len(good)))
-    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,selec,good))])
-  print()
+  print("Dropping axiom information, not needed anymore")
+  prob_data_list = [(probname,(init,deriv,pars,selec,good)) for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
+  print("Done")
+
+  print("Smoothed representation")
+  for i, (probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+    pos_vals = defaultdict(float)
+    neg_vals = defaultdict(float)
+    tot_pos = 0.0
+    tot_neg = 0.0
+
+    for id in selec:
+      if id in good:
+        pos_vals[id] = 1.0
+        tot_pos += 1
+      else:
+        neg_vals[id] = 1.0
+        tot_neg += 1
+
+    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+  print("Done")
+
+  print("Compressing")
+  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    print(probname,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
+    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+  print("Done")
+
+  print("Making smooth compression discreet again")
+  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    tot_pos = 0.0
+    tot_neg = 0.0
+    
+    print(probname)
+    
+    for id,val in neg_vals.items():
+      if id in pos_vals and pos_vals[id] > 0.0: # pos has priority
+        '''
+        if val != 1.0:
+          print("negval goes from",val,"to 0.0 for posval",pos_vals[id])
+        '''
+        neg_vals[id] = 0.0
+      elif val > 0.0:
+        '''
+        if val != 1.0:
+          print("negval goes from",val,"to 1.0")
+        '''
+        neg_vals[id] = 1.0 # neg counts as one
+        tot_neg += 1.0
+
+    for id,val in pos_vals.items():
+      if val > 0.0:
+        '''
+        if val != 1.0:
+          print("posval goes from",val,"to 1.0")
+        '''
+        pos_vals[id] = 1.0 # pos counts as one too
+        tot_pos += 1.0
+
+    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+
+  print("Done")
 
   random.shuffle(prob_data_list)
   spl = int(len(prob_data_list) * 0.8)
