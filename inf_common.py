@@ -174,55 +174,59 @@ def save_net(name,parts,parts_copies):
   # from here on only use the updated copies
   (init_embeds,deriv_mlps,eval_net) = parts_copies
   
+  initEmbeds = {}
+  for ax_name,embed in init_embeds.items():
+    initEmbeds[ax_name] = embed.weight
+  
   # This is, how we envision inference:
   class InfRecNet(torch.nn.Module):
     store : Dict[int, Tensor] # each id stores its embedding
+    initEmbeds : Dict[str, Tensor]
     
     def __init__(self,
-        init_G : torch.nn.Module,
-        init_0 : torch.nn.Module,'''
+        initEmbeds : Dict[str, Tensor],'''
 
 bigpart2 ='''        eval_net : torch.nn.Module):
       super(InfRecNet, self).__init__()
 
       self.store = {}
       
-      self.init_G = init_G
-      self.init_0 = init_0'''
-
-bigpart_rec1='''
+      self.initEmbeds = initEmbeds'''
+      
+bigpart_no_longer_rec1 = '''
     @torch.jit.export
-    def new_init{}(self, id: int, features : Tuple[int, int, int, int, int, int]) -> bool:
-      embed = self.init_{}()
-      self.store[id] = embed
-      val = self.eval_net(embed)
-      return val[0].item() >= 0.0'''
+    def forward(self, id: int) -> bool:
+      val = self.eval_net(self.store[id])
+      return val[0].item() >= 0.0
+
+    @torch.jit.export
+    def new_init(self, id: int, features : Tuple[int, int, int, int, int, int], name: str) -> None:
+      if name in self.initEmbeds:
+        embed = self.initEmbeds[name]
+      else:
+        embed = self.initEmbeds["0"]
+      self.store[id] = embed'''
 
 bigpart_rec2='''
     @torch.jit.export
-    def new_deriv{}(self, id: int, features : Tuple[int, int, int, int, int], pars : List[int]) -> bool:
+    def new_deriv{}(self, id: int, features : Tuple[int, int, int, int, int], pars : List[int]) -> None:
       rule = features[-1]
       arit = len(pars)
       par_embeds = [self.store[par] for par in pars]
       embed = self.deriv_{}(par_embeds)
-      self.store[id] = embed
-      val = self.eval_net(embed)
-      return val[0].item() >= 0.0'''
+      self.store[id] = embed'''
 
 bigpart_avat = '''
     @torch.jit.export
-    def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> bool:
+    def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> None:
       par = features[-1]
       par_embeds = [self.store[par]]
       embed = self.deriv_666(par_embeds) # special avatar code
-      self.store[id] = embed
-      val = self.eval_net(embed)
-      return val[0].item() >= 0.0'''
+      self.store[id] = embed'''
 
 bigpart3 = '''
   module = torch.jit.script(InfRecNet(
-    init_embeds['-1'],
-    init_embeds['0'],'''
+    initEmbeds,'''
 
 bigpart4 = '''    eval_net
     ))
@@ -232,18 +236,22 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
   with open("inf_saver.py","w") as f:
     print(bigpart1,file=f)
 
+    '''
     for i in sorted(init_sign):
       if i > 0: # the other ones are already there
         print("        init_{} : torch.nn.Module,".format(i),file=f)
+    '''
 
     for rule in sorted(deriv_arits):
       print("        deriv_{} : torch.nn.Module,".format(rule),file=f)
 
     print(bigpart2,file=f)
 
+    '''
     for i in sorted(init_sign):
       if i > 0:
         print("      self.init_{} = init_{}".format(i,i),file=f)
+    '''
 
     print("      self.deriv_1 = deriv_1",file=f)
     print("      self.deriv_2 = deriv_2",file=f)
@@ -251,12 +259,15 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
       print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
     print("      self.eval_net = eval_net",file=f)
 
-    print(bigpart_rec1.format("G","G"),file=f)
+    print(bigpart_no_longer_rec1,file=f)
+    
+    '''
     print(bigpart_rec1.format("0","0"),file=f)
 
     for i in sorted(init_sign):
       if i > 0:
         print(bigpart_rec1.format(thax_to_str[i] if i in thax_to_str else str(i),str(i)),file=f)
+    '''
 
     for rule in sorted(deriv_arits):
       if rule < 666: # avatar done differently in bigpart3
@@ -266,9 +277,11 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
       print(bigpart_avat,file=f)
 
     print(bigpart3,file=f)
+    '''
     for i in sorted(init_sign):
       if i > 0: # the other ones are already there
         print("    init_embeds['{}'],".format(i),file=f)
+    '''
     for rule in sorted(deriv_arits):
       print("    deriv_mlps['{}'],".format(rule),file=f)
     print(bigpart4,file=f)
