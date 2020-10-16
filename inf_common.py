@@ -286,6 +286,37 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
       print("    deriv_mlps['{}'],".format(rule),file=f)
     print(bigpart4,file=f)
 
+
+def create_saver_old(init_hist,deriv_hist):
+  with open("inf_saver_old.py","w") as f:
+    print(bigpart1,file=f)
+
+    for (rule, arit) in sorted(deriv_hist):
+      print("        deriv_{} : torch.nn.Module,".format(rule),file=f)
+
+    print(bigpart2,file=f)
+
+    print("      self.deriv_1 = deriv_1",file=f)
+    print("      self.deriv_2 = deriv_2",file=f)
+    for (rule, arit) in sorted(deriv_hist):
+      print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
+    print("      self.eval_net = eval_net",file=f)
+
+    print(bigpart_no_longer_rec1,file=f)
+
+    for (rule, arit) in sorted(deriv_hist):
+      if rule < 666: # avatar done differently in bigpart3
+        print(bigpart_rec2.format(str(rule),str(rule)),file=f)
+
+    if (666,1) in deriv_hist:
+      print(bigpart_avat,file=f)
+
+    print(bigpart3,file=f)
+
+    for (rule, arit) in sorted(deriv_hist):
+      print("    deriv_mlps['{}'],".format(rule),file=f)
+    print(bigpart4,file=f)
+
 # Learning model class
 class LearningModel(torch.nn.Module):
   def __init__(self,
