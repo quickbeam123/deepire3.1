@@ -26,14 +26,14 @@ def ThaxSourceName(val):
   elif val == ThaxSource_AXIOM_NAMES:
     return "AxiomNames"
 
-THAX_SOURCE = ThaxSource_AXIOM_NAMES
+THAX_SOURCE = ThaxSource_THAX_FEATURE
 
 AXCNT_CUTOFF = 10 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 64
+EMBED_SIZE = 128
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -100,4 +100,4 @@ TRR = TestRiskRegimen_OVERFIT
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
-POS_WEIGHT_EXTRA = 1.0
+POS_WEIGHT_EXTRA = 2.0

@@ -223,7 +223,7 @@ if __name__ == "__main__":
 
   print("Done")
 
-  if True: # Big compression now:
+  if False: # Big compression now:
     print("Grand compression")
     prob_data_list = [IC.compress_prob_data(prob_data_list)]
     

@@ -29,9 +29,9 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 1
+NUMPROCESSES = 20
 
-DATA_THROUGH_QUEUE = True
+DATA_THROUGH_QUEUE = False
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -190,7 +190,7 @@ if __name__ == "__main__":
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
    
-    if epoch > 50:
+    if epoch > 150:
       break
     
     times.append(epoch)

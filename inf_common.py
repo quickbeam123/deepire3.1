@@ -157,9 +157,9 @@ def name_learning_regime_suffix():
     HP.TestRiskRegimenName(HP.TRR))
 
 def name_raw_data_siffix():
-  return "_av{}_thax{}{}.pt".format(
+  return "_av{}_thax{}.pt".format(
     HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
-    HP.ThaxSourceName(HP.THAX_SOURCE),HP.AXCNT_CUTOFF)
+    HP.ThaxSourceName(HP.THAX_SOURCE)+(str(HP.AXCNT_CUTOFF) if HP.THAX_SOURCE == ThaxSource_AXIOM_NAMES else ""))
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -343,15 +343,17 @@ class LearningModel(torch.nn.Module):
     self.pos_vals = pos_vals
     self.neg_vals = neg_vals
   
+    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos
+  
+    '''
     print()
     print("LearningModel")
     print("HP.POS_BIAS",HP.POS_WEIGHT_EXTRA)
     print("tot_pos",tot_pos)
     print("tot_neg",tot_neg)
   
-    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos
-    
     print("pos_weight",pos_weight)
+    '''
     
     self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
   
@@ -368,16 +370,18 @@ class LearningModel(torch.nn.Module):
       self.posOK += pos
     else:
       self.negOK += neg
-    
+  
+    contrib = self.criterion(val,torch.tensor([pos/(pos+neg)]))
+  
+    '''
     print("contribute",id,pos,neg)
     print("logit",val[0].item())
     print("(val {})".format(1.0 if val[0].item() >= 0.0 else 0.0))
     print("gold",pos/(pos+neg))
     
-    contrib = self.criterion(val,torch.tensor([pos/(pos+neg)]))
-    
     print("loss",(pos+neg),"*",contrib.item())
     print()
+    '''
     
     return (pos+neg)*contrib
 

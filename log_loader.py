@@ -25,7 +25,10 @@ def load_one(task):
   start_time = time.time()
   probdata = IC.load_one(probname) # ,max_size=15000)
   print("Took",time.time()-start_time)
-  return probdata
+  if probdata:
+    return probname,probdata
+  else:
+    None
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -45,19 +48,20 @@ if __name__ == "__main__":
 
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
 
-  '''
   tasks = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
+      """
       if i >= 1000:
         break
+      """
       probname = line[:-1]
       tasks.append((i,probname))
   pool = Pool(processes=50)
   results = pool.map(load_one, tasks, chunksize = 100)
   prob_data_list = list(filter(None, results))
+
   '''
-  
   prob_data_list = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
@@ -66,10 +70,11 @@ if __name__ == "__main__":
       if probdata is not None:
         prob_data_list.append((probname,probdata))
       
-      '''
+      """
       if len(prob_data_list) >= 1000:
         break
-      '''
+      """
+  '''
 
   print(len(prob_data_list),"problems loaded!")
   print()
