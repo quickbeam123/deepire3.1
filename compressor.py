@@ -77,7 +77,7 @@ def just_not_to_lose_for_now():
   while size_and_prob:
     size, my_rest = size_and_prob.pop()
 
-    print("Poped guy of size",size)
+    print("Popped guy of size",size)
 
     while size < treshold and size_and_prob:
       print("Looking for a friend")
@@ -140,13 +140,15 @@ if __name__ == "__main__":
     tot_pos = 0.0
     tot_neg = 0.0
 
+    one_clause_weigth = 1.0/len(selec)
+
     for id in selec:
       if id in good:
-        pos_vals[id] = 1.0
-        tot_pos += 1
+        pos_vals[id] = one_clause_weigth
+        tot_pos += one_clause_weigth
       else:
-        neg_vals[id] = 1.0
-        tot_neg += 1
+        neg_vals[id] = one_clause_weigth
+        tot_neg += one_clause_weigth
 
     prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
     
@@ -209,6 +211,15 @@ if __name__ == "__main__":
         pos_vals[id] = 1.0 # pos counts as one too
         tot_pos += 1.0
 
+    # new stuff -- normalize so that each abstracted clause in a problem has so much "voice" that tha whole problem has a sum of 1.0
+    factor = 1.0/(tot_pos+tot_neg)
+    for id,val in pos_vals.items():
+      pos_vals[id] *= factor
+    for id,val in neg_vals.items():
+      neg_vals[id] *= factor
+    tot_pos *= factor
+    tot_neg *= factor
+
     '''
     if "t16_finsub_1" in probname:
       print(pos_vals)
@@ -228,10 +239,12 @@ if __name__ == "__main__":
     prob_data_list = [IC.compress_prob_data(prob_data_list)]
     
     (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) = prob_data_list[0]
-    print(pos_vals)
-    print(neg_vals)
+    '''
+    for id in sorted(set(pos_vals) | set(neg_vals)):
+      print(id, pos_vals[id], neg_vals[id])
     print(tot_pos)
     print(tot_neg)
+    '''
     
     print("Done")
 
