@@ -14,7 +14,7 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-def eval_one(model,init,deriv,pars,selec,good):
+def eval_one(model,init,deriv,pars,selec,good,axioms):
   posOK = 0
   posTot = 0
   negOK = 0
@@ -22,11 +22,17 @@ def eval_one(model,init,deriv,pars,selec,good):
 
   for id, thax in init:
     if thax == -1:
-      val = getattr(model,"new_initG")(id,[0,0,0,1,0,0])
+      st = "-1"
+    elif id in axioms:
+      st = axioms[id]
     else:
-      val = getattr(model,"new_init{}".format(thax))(id,[0,0,0,0,thax,0])
+      st = str(thax)
+    getattr(model,"new_init")(id,[0,0,0,1,0,0],st)
 
     # print(id,thax,val,id in selec,id in good)
+    logit = model(id) # calling forward
+    # print(id,thax,logit,id in selec,id in good)
+    val = (logit >= 0.0) # interpreting the logit
 
     if id in selec:
       if id in good:
@@ -42,11 +48,13 @@ def eval_one(model,init,deriv,pars,selec,good):
     if rule == 666:
       my_pars = pars[id]
       assert(len(my_pars) == 1)
-      val = getattr(model,"new_avat")(id,[0,0,0,my_pars[0]])
+      getattr(model,"new_avat")(id,[0,0,0,my_pars[0]])
     else:
-      val = getattr(model,"new_deriv{}".format(rule))(id,[0,0,0,0,rule],pars[id])
+      getattr(model,"new_deriv{}".format(rule))(id,[0,0,0,0,rule],pars[id])
 
-    # print(id,rule,val,id in selec,id in good)
+    logit = model(id) # calling forward
+    # print(id,rule,logit,id in selec,id in good)
+    val = (logit >= 0.0) # interpreting the logit
 
     if id in selec:
       if id in good:
@@ -78,17 +86,20 @@ if __name__ == "__main__":
   posrate_sum = 0.0
   negrate_sum = 0.0
 
+  seen = 0
+
   with open(sys.argv[2],"r") as f:
     for line in f:
       probname = line[:-1]
       probdata = IC.load_one(probname)
       if probdata is None:
         continue
-      (init,deriv,pars,selec,good) = probdata
+    
+      (init,deriv,pars,selec,good,axioms) = probdata
 
       model = torch.jit.load(sys.argv[1]) # always load a new model -- it contains the lookup tables for the particular model
 
-      (posOK,posTot,negOK,negTot) = eval_one(model,init,deriv,pars,selec,good)
+      (posOK,posTot,negOK,negTot) = eval_one(model,init,deriv,pars,selec,good,axioms)
       
       posrate = posOK / posTot if posTot > 0 else 1.0
       negrate = negOK / negTot if negTot > 0 else 1.0
@@ -97,6 +108,10 @@ if __name__ == "__main__":
       print(cnt,"Posrate",posrate,"negrate",negrate)
       posrate_sum += posrate
       negrate_sum += negrate
+
+      seen += 1
+      if seen >= 1000:
+        break
 
   print()
   print("Total probs:",cnt)
