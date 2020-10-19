@@ -5,7 +5,7 @@ import inf_common as IC
 import torch
 from torch import Tensor
 
-import time,bisect,random
+import time,bisect,random,math
 
 from typing import Dict, List, Tuple, Optional
 
@@ -14,15 +14,7 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-if __name__ == "__main__":
-  # Experiments with pytorch and torch script
-  # what can be learned from a super-simple TreeNN
-  # which distinguishes:
-  # 1) conj, user_ax, theory_ax_kind in the leaves
-  # 2) what inference leads to this in the tree nodes
-  #
-  # To be called as in: ./data_analyzer.py data_sign.pt training_data.pt <compressed_data_file_name>
-
+def just_not_to_lose_for_now():
   init_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
   parts = IC.get_initial_model(init_sign,deriv_arits)
 
@@ -117,3 +109,141 @@ if __name__ == "__main__":
   print("Compressed to",len(compressed),"merged problems")
   torch.save(compressed,sys.argv[3])
   print("Save to",sys.argv[3])
+
+if __name__ == "__main__":
+  # Experiments with pytorch and torch script
+  # what can be learned from a super-simple TreeNN
+  # which distinguishes:
+  # 1) conj, user_ax, theory_ax_kind in the leaves
+  # 2) what inference leads to this in the tree nodes
+  #
+  # To be called as in: ./compressor.py <folder> raw_log_data_*.pt
+  #
+  # raw_log_data is compressed via abstraction (and a smoothed representation is created)
+  #
+  # optionally, multiple problems can be grouped together (also using the compression code)
+  #
+  # finally, 80-20 split on the suffled list is performed and training_data.pt validation_data.pt are saved to folder
+
+  prob_data_list = torch.load(sys.argv[2])
+  
+  print("Loaded raw prob_data_list of len:",len(prob_data_list))
+
+  print("Dropping axiom information, not needed anymore")
+  prob_data_list = [(probname,(init,deriv,pars,selec,good)) for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
+  print("Done")
+
+  print("Smoothed representation")
+  for i, (probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+    pos_vals = defaultdict(float)
+    neg_vals = defaultdict(float)
+    tot_pos = 0.0
+    tot_neg = 0.0
+
+    for id in selec:
+      if id in good:
+        pos_vals[id] = 1.0
+        tot_pos += 1
+      else:
+        neg_vals[id] = 1.0
+        tot_neg += 1
+
+    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+    
+    '''
+    if "t16_finsub_1" in probname:
+      print(probname)
+      print(selec)
+      print(good)
+      print(pos_vals)
+      print(neg_vals)
+    '''
+    
+  print("Done")
+
+  print("Compressing")
+  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    print(probname,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
+    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+  print("Done")
+
+  print("Making smooth compression discreet again")
+  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    print()
+  
+    print(probname)
+    print(tot_pos,tot_neg)
+  
+    '''
+    if "t16_finsub_1" in probname:
+      print(pos_vals)
+      print(neg_vals)
+      print(tot_pos)
+      print(tot_neg)
+    '''
+  
+    tot_pos = 0.0
+    tot_neg = 0.0
+            
+    for id,val in neg_vals.items():
+      if id in pos_vals and pos_vals[id] > 0.0: # pos has priority
+        '''
+        if val != 1.0:
+          print("negval goes from",val,"to 0.0 for posval",pos_vals[id])
+        '''
+        neg_vals[id] = 0.0
+      elif val > 0.0:
+        '''
+        if val != 1.0:
+          print("negval goes from",val,"to 1.0")
+        '''
+        neg_vals[id] = 1.0 # neg counts as one
+        tot_neg += 1.0
+
+    for id,val in pos_vals.items():
+      if val > 0.0:
+        '''
+        if val != 1.0:
+          print("posval goes from",val,"to 1.0")
+        '''
+        pos_vals[id] = 1.0 # pos counts as one too
+        tot_pos += 1.0
+
+    '''
+    if "t16_finsub_1" in probname:
+      print(pos_vals)
+      print(neg_vals)
+      print(tot_pos)
+      print(tot_neg)
+    '''
+
+    print(tot_pos,tot_neg)
+
+    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+
+  print("Done")
+
+  if True: # Big compression now:
+    print("Grand compression")
+    prob_data_list = [IC.compress_prob_data(prob_data_list)]
+    
+    (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) = prob_data_list[0]
+    print(pos_vals)
+    print(neg_vals)
+    print(tot_pos)
+    print(tot_neg)
+    
+    print("Done")
+
+  random.shuffle(prob_data_list)
+  spl = math.ceil(len(prob_data_list) * 0.8)
+  print("shuffled and split at idx",spl,"out of",len(prob_data_list))
+
+  filename = "{}/training_data.pt".format(sys.argv[1])
+  print("Saving training part to",filename)
+  torch.save(prob_data_list[:spl], filename)
+  filename = "{}/validation_data.pt".format(sys.argv[1])
+  print("Saving testing part to",filename)
+  torch.save(prob_data_list[spl:], filename)
+
+

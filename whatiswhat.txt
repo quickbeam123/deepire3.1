@@ -67,3 +67,5 @@ suspecting too simple and too deep derivations (which I was discarding in inf_co
 
 compressor.py
 - Some training problems can be grouped together so that they are more evenly sized and parallel graph building pays off.
+- Became an integral part of the pipeline. Big compression is not compulsory, but compressing for the abstraction makes sense anyway
+(and we no longer learn from good/selec data directly anyway!)

@@ -106,15 +106,18 @@ class CatAndNonLinearMultiary(CatAndNonLinear):
 
 def get_initial_model(init_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
-  assert(-1 in init_sign) # to have conjecture embedding
-  assert(0 in init_sign)  # to have user-fla embedding
+  if HP.SWAPOUT > 0.0:
+    assert(-1 in init_sign) # to have conjecture embedding
+    assert(0 in init_sign)  # to have user-fla embedding
+  
   for i in init_sign:
     init_embeds[str(i)] = Embed(HP.EMBED_SIZE)
 
-  # to have the arity 1 and 2 defaults
-  # NOTE: 1 and 2 don't conflict with proper rule indexes
-  assert(deriv_arits[1] == 1)
-  assert(deriv_arits[2] == 2)
+  if HP.SWAPOUT > 0.0:
+    # to have the arity 1 and 2 defaults
+    # NOTE: 1 and 2 don't conflict with proper rule indexes
+    assert(deriv_arits[1] == 1)
+    assert(deriv_arits[2] == 2)
 
   deriv_mlps = torch.nn.ModuleDict()
   for rule,arit in deriv_arits.items():
@@ -147,12 +150,16 @@ def name_initial_model_suffix():
     HP.DROPOUT)
 
 def name_learning_regime_suffix():
-  return "_lr{}_p{}n{}_swapout{}_trr{}.txt".format(
+  return "_lr{}_p{}_swapout{}_trr{}.txt".format(
     HP.LEARN_RATE,
-    HP.POS_BIAS,
-    HP.NEG_BIAS,
+    HP.POS_WEIGHT_EXTRA,
     HP.SWAPOUT,
     HP.TestRiskRegimenName(HP.TRR))
+
+def name_raw_data_siffix():
+  return "_av{}_thax{}{}.pt".format(
+    HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
+    HP.ThaxSourceName(HP.THAX_SOURCE),HP.AXCNT_CUTOFF)
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -253,8 +260,8 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
         print("      self.init_{} = init_{}".format(i,i),file=f)
     '''
 
-    print("      self.deriv_1 = deriv_1",file=f)
-    print("      self.deriv_2 = deriv_2",file=f)
+    # print("      self.deriv_1 = deriv_1",file=f)
+    # print("      self.deriv_2 = deriv_2",file=f)
     for rule in sorted(deriv_arits):
       print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
     print("      self.eval_net = eval_net",file=f)
@@ -336,10 +343,17 @@ class LearningModel(torch.nn.Module):
     self.pos_vals = pos_vals
     self.neg_vals = neg_vals
   
-    pos_weight = HP.POS_BIAS/tot_pos if tot_pos > 0.0 else 1.0
-    neg_weight = HP.NEG_BIAS/tot_neg if tot_neg > 0.0 else 1.0
+    print()
+    print("LearningModel")
+    print("HP.POS_BIAS",HP.POS_WEIGHT_EXTRA)
+    print("tot_pos",tot_pos)
+    print("tot_neg",tot_neg)
+  
+    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos
     
-    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight/neg_weight]))
+    print("pos_weight",pos_weight)
+    
+    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
   
   def contribute(self, id: int, embed : Tensor):
     val = self.eval_net(embed)
@@ -355,7 +369,17 @@ class LearningModel(torch.nn.Module):
     else:
       self.negOK += neg
     
-    return (pos+neg)*self.criterion(val,torch.tensor([pos/(pos+neg)]))
+    print("contribute",id,pos,neg)
+    print("logit",val[0].item())
+    print("(val {})".format(1.0 if val[0].item() >= 0.0 else 0.0))
+    print("gold",pos/(pos+neg))
+    
+    contrib = self.criterion(val,torch.tensor([pos/(pos+neg)]))
+    
+    print("loss",(pos+neg),"*",contrib.item())
+    print()
+    
+    return (pos+neg)*contrib
 
   # Construct the whole graph and return its loss
   # TODO: can we keep the graph after an update?
@@ -495,7 +519,8 @@ def load_one(filename,max_size = None):
         empty = int(spl[1])
         
         # THIS IS THE INCLUSIVE AVATAR STRATEGY; comment out if you only want those empties that really contributed to the final contradiction
-        # good = good | get_ancestors(empty,pars,known_ancestors=good)
+        if HP.AVATAR_EMPTIES == HP.TreatAvatarEmpties_INCLUDEALL:
+          good = good | get_ancestors(empty,pars,known_ancestors=good)
         
       elif spl[0] == "f:":
         # fake one more derived clause ("-1") into parents
@@ -523,15 +548,14 @@ def load_one(filename,max_size = None):
   #  this whole considiration becomes moot
 
   # one more goodness-collecting run;
-  # 1) for the sake of the "f"-empty clause
-  # 2) if the corresponding line for the common "e"-empty is commented out, this will collect at least once
+  # for the sake of the "f"-empty clause or the last "e:" which can close even an avatar proof (the SAT-solver-was-useless case)
   good = good | get_ancestors(empty,pars,known_ancestors=good)
   good = good & selec # proof clauses that were never selected don't count
 
   # TODO: consider learning only from hard problems!
   
   # E.g., solveable by a stupid strategy (age-only), get filtered out
-  if not selec or not good:
+  if not selec or not good or len(selec) == len(good):
     print("Skipping, degenerate.")
     return None
 
@@ -557,10 +581,11 @@ def prepare_signature(prob_data_list):
       thax = features
       init_sign.add(thax)
 
-    # make sure we have 0 - the default embedding ...
-    init_sign.add(0)
-    # ... and -1, the conjecture one (although no conjecture in smtlib!)
-    init_sign.add(-1)
+    if HP.SWAPOUT > 0.0:
+      # make sure we have 0 - the default embedding ...
+      init_sign.add(0)
+      # ... and -1, the conjecture one (although no conjecture in smtlib!)
+      init_sign.add(-1)
 
     for id, features in deriv:
       # already abstracted
@@ -574,16 +599,17 @@ def prepare_signature(prob_data_list):
       else:
         deriv_arits[rule] = arit
 
-    # make sure we have arity 1 and 2 defaults
-    deriv_arits[1] = 1
-    deriv_arits[2] = 2
+    if HP.SWAPOUT > 0.0:
+      # make sure we have arity 1 and 2 defaults
+      deriv_arits[1] = 1
+      deriv_arits[2] = 2
   
     for id,ax in axioms.items():
       axiom_hist[ax] += 1
 
   return (init_sign,deriv_arits,axiom_hist)
 
-def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list):
+def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list,axcnt_cutoff):
   # (we didn't parse anything than 0 and -1 anyway:)
   assert(0 in init_sign and (len(init_sign) == 1 or len(init_sign) == 2 and -1 in init_sign))
   
@@ -595,7 +621,7 @@ def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list):
   for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
     # print(ax,num)
     
-    if num >= 100: # change this constant to get something reasonable
+    if num >= axcnt_cutoff: # change this constant to get something reasonable
       good_ax_cnt += 1
       ax_idx[ax] = good_ax_cnt
       thax_to_str[good_ax_cnt] = ax

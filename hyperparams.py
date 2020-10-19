@@ -4,10 +4,36 @@
 
 import torch
 
+# DATA PREPARATION PARAMS:
+
+TreatAvatarEmpties_JUSTFINAL = 1
+TreatAvatarEmpties_INCLUDEALL = 2
+
+def TreatAvatarEmptiesName(val):
+  if val == TreatAvatarEmpties_JUSTFINAL:
+    return "F"
+  elif val == TreatAvatarEmpties_INCLUDEALL:
+    return "E"
+
+AVATAR_EMPTIES = TreatAvatarEmpties_JUSTFINAL
+
+ThaxSource_THAX_FEATURE = 1
+ThaxSource_AXIOM_NAMES = 2
+
+def ThaxSourceName(val):
+  if val == ThaxSource_THAX_FEATURE:
+    return "VampThax"
+  elif val == ThaxSource_AXIOM_NAMES:
+    return "AxiomNames"
+
+THAX_SOURCE = ThaxSource_AXIOM_NAMES
+
+AXCNT_CUTOFF = 10 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 128
+EMBED_SIZE = 64
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -69,10 +95,9 @@ def TestRiskRegimenName(val):
   elif val == TestRiskRegimen_OVERFIT:
     return "OVERFIT"
 
-TRR = TestRiskRegimen_VALIDATE
+TRR = TestRiskRegimen_OVERFIT
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
-POS_BIAS = 5.0
-NEG_BIAS = 1.0
+POS_WEIGHT_EXTRA = 1.0

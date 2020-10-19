@@ -14,11 +14,40 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-def eval_one(model,init,deriv,pars,selec,good,axioms):
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit):
+  # print(id,thax,val,id in selec,id in good)
+  logit = model(id) # calling forward
+  # print(id,thax,logit,id in selec,id in good)
+  val = (logit >= 0.0) # interpreting the logit
+
+  if id in selec:
+    if id in good:
+      pos_cuts[logit] += 1
+      posTot += 1
+      if val:
+        posOK += 1
+      
+      if logit < min_pos_logit:
+        min_pos_logit = logit
+  
+    else:
+      neg_cuts[logit] += 1
+      negTot += 1
+      if not val:
+        negOK += 1
+
+  return posOK,posTot,negOK,negTot,min_pos_logit
+
+def eval_one(model,init,deriv,pars,selec,good,axioms,pos_cuts,neg_cuts,per_prob,probname):
   posOK = 0
   posTot = 0
   negOK = 0
   negTot = 0
+  min_pos_logit = sys.float_info.max
 
   for id, thax in init:
     if thax == -1:
@@ -29,20 +58,7 @@ def eval_one(model,init,deriv,pars,selec,good,axioms):
       st = str(thax)
     getattr(model,"new_init")(id,[0,0,0,1,0,0],st)
 
-    # print(id,thax,val,id in selec,id in good)
-    logit = model(id) # calling forward
-    # print(id,thax,logit,id in selec,id in good)
-    val = (logit >= 0.0) # interpreting the logit
-
-    if id in selec:
-      if id in good:
-        posTot += 1
-        if val:
-          posOK += 1
-      else:
-        negTot += 1
-        if not val:
-          negOK += 1
+    posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
   for id, rule in deriv:
     if rule == 666:
@@ -52,19 +68,9 @@ def eval_one(model,init,deriv,pars,selec,good,axioms):
     else:
       getattr(model,"new_deriv{}".format(rule))(id,[0,0,0,0,rule],pars[id])
 
-    logit = model(id) # calling forward
-    # print(id,rule,logit,id in selec,id in good)
-    val = (logit >= 0.0) # interpreting the logit
+    posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
-    if id in selec:
-      if id in good:
-        posTot += 1
-        if val:
-          posOK += 1
-      else:
-        negTot += 1
-        if not val:
-          negOK += 1
+  per_prob[min_pos_logit].append(probname)
 
   return (posOK,posTot,negOK,negTot)
 
@@ -78,44 +84,88 @@ if __name__ == "__main__":
   # Load a torchscript model and a set of logs, passed in a file as the final argument,
   # test the model on the logs (as if vampire was running) and report individual and average pos/neg rates
   #
-  # To be called as in: ./model_debugger.py torch_script_model.pt *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
+  # To be called as in: ./model_debugger.py raw_log_data_*.pt torch_script_model.pt
 
-  # loading logs as in log_loader
+  prob_data_list = torch.load(sys.argv[1])
 
   cnt = 0
   posrate_sum = 0.0
   negrate_sum = 0.0
+  
+  # keep collecting the logis values at which we would need to cut to get this clause classified as positive
+  pos_cuts = defaultdict(int)
+  neg_cuts = defaultdict(int)
+  per_prob = defaultdict(list)
 
-  seen = 0
+  for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
+    model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
 
-  with open(sys.argv[2],"r") as f:
-    for line in f:
-      probname = line[:-1]
-      probdata = IC.load_one(probname)
-      if probdata is None:
-        continue
+    (posOK,posTot,negOK,negTot) = eval_one(model,init,deriv,pars,selec,good,axioms,pos_cuts,neg_cuts,per_prob,probname)
     
-      (init,deriv,pars,selec,good,axioms) = probdata
-
-      model = torch.jit.load(sys.argv[1]) # always load a new model -- it contains the lookup tables for the particular model
-
-      (posOK,posTot,negOK,negTot) = eval_one(model,init,deriv,pars,selec,good,axioms)
-      
-      posrate = posOK / posTot if posTot > 0 else 1.0
-      negrate = negOK / negTot if negTot > 0 else 1.0
-      
-      cnt += 1
-      print(cnt,"Posrate",posrate,"negrate",negrate)
-      posrate_sum += posrate
-      negrate_sum += negrate
-
-      seen += 1
-      if seen >= 1000:
-        break
+    posrate = posOK / posTot if posTot > 0 else 1.0
+    negrate = negOK / negTot if negTot > 0 else 1.0
+    
+    cnt += 1
+    print(probname)
+    print(cnt,"Posrate",posrate,"negrate",negrate)
+    posrate_sum += posrate
+    negrate_sum += negrate
 
   print()
   print("Total probs:",cnt)
   print("Final posrate:",posrate_sum/cnt)
   print("Final negrate:",negrate_sum/cnt)
+
+  print()
+  print("per_prob pos example logit minima")
+  for logit, problems in sorted(per_prob.items()):
+    print(logit,problems)
+
+  print()
+  print("Plotting")
+
+  logits = []
+  cur_pos = 0
+  pos_vals = []
+  cur_neg = 0
+  neg_vals = []
+  cur_prob = 0
+  prob_vals = []
+  for logit in sorted(set(pos_cuts) | set(neg_cuts)):
+    logits.append(logit)
+    cur_pos += pos_cuts[logit]
+    pos_vals.append(cur_pos)
+    cur_neg += neg_cuts[logit]
+    neg_vals.append(cur_neg)
+    cur_prob += len(per_prob[logit])
+    prob_vals.append(cur_prob)
+
+  fig, ax1 = plt.subplots()
+
+  color = 'tab:blue'
+  ax1.set_xlabel('logit value')
+  ax1.set_ylabel('clause count (%)', color=color)
+  lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ":", linewidth = 1, label = "neg_vals", color=color)
+  lps, = ax1.plot(logits, np.array(pos_vals)/pos_vals[-1], "--", linewidth = 1,label = "pos_vals", color=color)
+  ax1.tick_params(axis='y', labelcolor=color)
+
+  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+  color = 'tab:red'
+  ax2.set_ylabel('problem count', color=color)  # we already handled the x-label with ax1
+
+  lpv, = ax2.plot(logits, prob_vals, "*", label = "per_prob_pos_min", color=color)
+  ax2.tick_params(axis='y', labelcolor=color)
+
+  fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+  plt.legend(handles = [lnv,lps,lpv], loc='upper left') # loc = 'best' is rumored to be unpredictable
+
+  # plt.show()
+
+  filename = "debugger_plot.png"
+  plt.savefig(filename,dpi=250)
+  print("Saved final plot to",filename)
+  plt.close(fig)
 
 

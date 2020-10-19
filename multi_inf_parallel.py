@@ -29,7 +29,9 @@ import numpy as np
 import inf_common as IC
 import hyperparams as HP
 
-NUMPROCESSES = 15
+NUMPROCESSES = 1
+
+DATA_THROUGH_QUEUE = True
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -89,8 +91,12 @@ common_data = None
 def worker(q_in, q_out):
   global common_data
   while True:
-    (idx,myparts,training) = q_in.get()
-    probname, data = common_data[training][idx]
+    if DATA_THROUGH_QUEUE:
+      (idx,data,myparts,training) = q_in.get()
+    else:
+      (idx,myparts,training) = q_in.get()
+      probname, data = common_data[training][idx]
+    
     (loss,posRate,negRate,myparts) = eval_and_or_learn_on_one(myparts,data,training)
     q_out.put((idx,loss,posRate,negRate,myparts))
 
@@ -108,7 +114,7 @@ if __name__ == "__main__":
   # To be called as in: ./multi_inf_parallel.py <folder_in> <folder_out> <initial-model>
   #
   # it expects <folder_in> to contain "training_data.pt" and "validation_data.pt"
-  # (and maybe also "data_hist.pt")
+  # (and maybe also "data_sign.pt")
   #
   # if <initial-model> is not specified,
   # it creates a new one in <folder_out> using the same naming scheme as initializer.py
@@ -122,8 +128,6 @@ if __name__ == "__main__":
   print("Loaded train data:",len(train_data_list))
   valid_data_list = torch.load("{}/validation_data.pt".format(sys.argv[1]))
   print("Loaded valid data:",len(valid_data_list))
-  
-  common_data = [valid_data_list,train_data_list]
   
   if len(sys.argv) >= 4:
     master_parts = torch.load(sys.argv[3])
@@ -141,6 +145,8 @@ if __name__ == "__main__":
     valid_data_list = []
     print("Merged valid with train; final:",len(train_data_list))
 
+  common_data = [valid_data_list,train_data_list]
+
   epoch = 0
 
   # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
@@ -155,9 +161,11 @@ if __name__ == "__main__":
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
+  my_processes = []
   for i in range(NUMPROCESSES):
     p = torch.multiprocessing.Process(target=worker, args=(q_in,q_out))
     p.start()
+    my_processes.append(p)
   
   t = 0
 
@@ -182,33 +190,11 @@ if __name__ == "__main__":
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
    
-    if epoch > 300:
-      exit(0)
+    if epoch > 50:
+      break
     
     times.append(epoch)
-    
-    '''
-    if epoch % 5 == 0:
-      print("Coagulating training data")
-      
-      if len(train_data_list) % 2 == 1:
-        new_train_data_list = [train_data_list.pop()]
-      else:
-        new_train_data_list = []
 
-      assert(len(train_data_list) % 2 == 0)
-
-      it = iter(train_data_list)
-      for pair in zip(it,it):
-        new_train_data_list.append(IC.compress_prob_data(pair))
-  
-      train_data_list = new_train_data_list
-      # shrink the statistisc as well
-      train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1))
-      
-      print("New train data size",len(train_data_list))
-    '''
-    
     feed_sequence = []
     for _ in range(EPOCHS_BEFORE_VALIDATION):
       # SGDing - so traverse each time in new order
@@ -228,7 +214,11 @@ if __name__ == "__main__":
         t += 1
         print("Time",t,"starting training job on problem",idx,probname,"size",len(data[0])+len(data[1]))
         print()
-        q_in.put((idx,parts_copy,True)) # True stands for "training is on"
+        if DATA_THROUGH_QUEUE:
+          message = (idx,data,parts_copy,True) # True stands for "training is on"
+        else:
+          message = (idx,parts_copy,True) # True stands for "training is on"
+        q_in.put(message)
 
       (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
@@ -266,7 +256,12 @@ if __name__ == "__main__":
         t += 1
         print("Time",t,"starting validation job on problem",idx,probname,"size",len(data[0])+len(data[1]))
         print()
-        q_in.put((idx,parts_copy,False)) # False stands for "training is off"
+        if DATA_THROUGH_QUEUE:
+          message = (idx,data,parts_copy,False) # False stands for "training is off"
+        else:
+          message = (idx,parts_copy,False) # False stands for "training is off"
+        
+        q_in.put(message)
 
       (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
@@ -285,3 +280,7 @@ if __name__ == "__main__":
 
     # plotting
     IC.plot_one("{}/plot.png".format(sys.argv[2]),times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
+
+  # a final "cleanup"
+  for p in my_processes:
+    p.kill()

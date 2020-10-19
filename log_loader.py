@@ -2,6 +2,8 @@
 
 import inf_common as IC
 
+import hyperparams as HP
+
 import torch
 from torch import Tensor
 
@@ -21,7 +23,7 @@ def load_one(task):
   
   print(i)
   start_time = time.time()
-  probdata = IC.load_one(probname,max_size=15000)
+  probdata = IC.load_one(probname) # ,max_size=15000)
   print("Took",time.time()-start_time)
   return probdata
 
@@ -39,7 +41,7 @@ if __name__ == "__main__":
   #
   # To be called as in: ./log_loader.py <folder> *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
   #
-  # data_hist.pt training_data.pt validation_data.pt are created in <folder>
+  # data_sign.pt and raw_log_data_*.pt are created in <folder>
 
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
 
@@ -64,26 +66,18 @@ if __name__ == "__main__":
       if probdata is not None:
         prob_data_list.append((probname,probdata))
       
+      '''
       if len(prob_data_list) >= 1000:
         break
+      '''
 
   print(len(prob_data_list),"problems loaded!")
   print()
 
-  '''
-  filename = "{}/raw_prob_data_list.pt".format(sys.argv[1])
-  torch.save(prob_data_list, filename)
-  '''
-  
-  '''
-  filename = "{}/raw_prob_data_list.pt".format(sys.argv[1])
-  prob_data_list = torch.load(filename)
-  '''
-
   init_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
-  if True: # We want to use axiom names rather than theory_axiom ids:
-    init_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list)
+  if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES: # We want to use axiom names rather than theory_axiom ids:
+    init_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list,axcnt_cutoff=HP.AXCNT_CUTOFF)
   else:
     thax_to_str = {}
 
@@ -97,78 +91,10 @@ if __name__ == "__main__":
   torch.save((init_sign,deriv_arits,thax_to_str), filename)
   print()
 
-  print("Dropping axiom information, not needed anymore")
-  prob_data_list = [(probname,(init,deriv,pars,selec,good)) for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
-  print("Done")
-
-  print("Smoothed representation")
-  for i, (probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
-    pos_vals = defaultdict(float)
-    neg_vals = defaultdict(float)
-    tot_pos = 0.0
-    tot_neg = 0.0
-
-    for id in selec:
-      if id in good:
-        pos_vals[id] = 1.0
-        tot_pos += 1
-      else:
-        neg_vals[id] = 1.0
-        tot_neg += 1
-
-    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
-  print("Done")
-
-  print("Compressing")
-  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
-    print(probname,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
-    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
-  print("Done")
-
-  print("Making smooth compression discreet again")
-  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
-    tot_pos = 0.0
-    tot_neg = 0.0
-    
-    print(probname)
-    
-    for id,val in neg_vals.items():
-      if id in pos_vals and pos_vals[id] > 0.0: # pos has priority
-        '''
-        if val != 1.0:
-          print("negval goes from",val,"to 0.0 for posval",pos_vals[id])
-        '''
-        neg_vals[id] = 0.0
-      elif val > 0.0:
-        '''
-        if val != 1.0:
-          print("negval goes from",val,"to 1.0")
-        '''
-        neg_vals[id] = 1.0 # neg counts as one
-        tot_neg += 1.0
-
-    for id,val in pos_vals.items():
-      if val > 0.0:
-        '''
-        if val != 1.0:
-          print("posval goes from",val,"to 1.0")
-        '''
-        pos_vals[id] = 1.0 # pos counts as one too
-        tot_pos += 1.0
-
-    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+  filename = "{}/raw_log_data{}".format(sys.argv[1],IC.name_raw_data_siffix())
+  print("Saving raw data to",filename)
+  torch.save(prob_data_list, filename)
+  print()
 
   print("Done")
 
-  random.shuffle(prob_data_list)
-  spl = int(len(prob_data_list) * 0.8)
-  print("shuffled and split at idx",spl,"out of",len(prob_data_list))
-
-  filename = "{}/training_data.pt".format(sys.argv[1])
-  print("Saving training part to",filename)
-  torch.save(prob_data_list[:spl], filename)
-  filename = "{}/validation_data.pt".format(sys.argv[1])
-  print("Saving testing part to",filename)
-  torch.save(prob_data_list[spl:], filename)
-
-  print("Done")
