@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 def eval_one(task):
   (i,epoch_model_file,blob) = task
   
-  print(i,epoch_model_file)
+  print(i,epoch_model_file,flush=True)
   
   (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = blob
   
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
   tasks = []
   for i in itertools.count():
-    epoch_model_file = "{}/model-epoch{}.pt".format(sys.argv[3],i)
+    epoch_model_file = "{}/model-epoch{}.pt".format(sys.argv[2],i)
     if not os.path.exists(epoch_model_file):
       break
     tasks.append((i,epoch_model_file,blob))
@@ -88,7 +88,7 @@ if __name__ == "__main__":
   pool.join()
   del pool
 
-  print("Plotting")
+  print("Plotting",flush=True)
 
   fig, ax = plt.subplots(figsize=(20, len(results)))
 
@@ -112,7 +112,7 @@ if __name__ == "__main__":
       epochs.append(i)
       logits.append(logits_dict[id])
 
-    print(id,color,size,(size-size_min)/(size_max-size_min))
+    print(id,color,size,(size-size_min)/(size_max-size_min),flush=True)
 
     something, = ax.plot(logits, epochs, "-", linewidth = 1, label = "cl{}".format(id), color = "gray", zorder=1)
     ax.scatter(logits, epochs, c = [color]*len(epochs), s = 20+200*(size-size_min)/(size_max-size_min), vmin = 0.0, vmax = 1.0, zorder=2)
