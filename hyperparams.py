@@ -100,4 +100,15 @@ TRR = TestRiskRegimen_OVERFIT
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
 
+Optimizer_SGD = 1
+Optimizer_ADAM = 2
+
+def OptimizerName(val):
+  if val == Optimizer_SGD:
+    return "SGD"
+  elif val == Optimizer_ADAM:
+    return "ADAM"
+
+OPTIMIZER = Optimizer_ADAM
+
 POS_WEIGHT_EXTRA = 2.0

@@ -150,7 +150,8 @@ def name_initial_model_suffix():
     HP.DROPOUT)
 
 def name_learning_regime_suffix():
-  return "_lr{}_p{}_swapout{}_trr{}.txt".format(
+  return "_o{}_lr{}_p{}_swapout{}_trr{}.txt".format(
+    HP.OptimizerName(HP.OPTIMIZER),
     HP.LEARN_RATE,
     HP.POS_WEIGHT_EXTRA,
     HP.SWAPOUT,

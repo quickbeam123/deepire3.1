@@ -173,7 +173,10 @@ if __name__ == "__main__":
   train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1)) # the last recoreded stats on the i-th problem
   validation_statistics = np.tile([1.0,0.0,0.0],(len(valid_data_list),1))
 
-  optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
+  if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
+    optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
+  elif HP.OPTIMIZER == HP.Optimizer_ADAM:
+    optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
 
   times = []
   train_losses = []
@@ -237,6 +240,7 @@ if __name__ == "__main__":
     torch.save(master_parts,model_name)
 
     (loss,posRate,negRate) = np.mean(train_statistics,axis=0)
+    loss *= len(train_statistics) # we want the loss summed up; so that mergeing preserves comparable values
     print("Training stats:",loss,posRate,negRate,flush=True)
     print("Validating...")
     
@@ -270,8 +274,9 @@ if __name__ == "__main__":
       print("Local:",loss,posRate,negRate)
       validation_statistics[idx] = (loss,posRate,negRate)
 
-    (loss,posRate,negRate) = np.mean(validation_statistics,axis=0)
     print("(Multi)-epoch",epoch,"validation finished at",time.time() - start_time)
+    (loss,posRate,negRate) = np.mean(validation_statistics,axis=0)
+    loss *= len(validation_statistics)# we want the loss summed up; so that mergeing preserves comparable values
     print("Validation stats:",loss,posRate,negRate,flush=True)
 
     valid_losses.append(loss)
