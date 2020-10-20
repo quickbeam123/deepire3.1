@@ -15,8 +15,8 @@ from collections import ChainMap
 import sys,random,itertools
 
 def just_not_to_lose_for_now():
-  init_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
-  parts = IC.get_initial_model(init_sign,deriv_arits)
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
+  parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
 
   prob_data_list = torch.load(sys.argv[2]) # [ probname, (init,deriv,pars,selec,good)]
   

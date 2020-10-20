@@ -142,7 +142,7 @@ class PairUp(torch.nn.Module): # we need this (instead of Sequential), because o
     x = self.m1(args)
     return self.m2(x)
 
-def get_initial_model(init_sign,deriv_arits):
+def get_initial_model(thax_sign,sine_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
   if HP.SWAPOUT > 0.0:
     assert(-1 in init_sign) # to have conjecture embedding
@@ -206,7 +206,7 @@ def name_learning_regime_suffix():
 def name_raw_data_siffix():
   return "_av{}_thax{}.pt".format(
     HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
-    HP.ThaxSourceName(HP.THAX_SOURCE)+(str(HP.AXCNT_CUTOFF) if HP.THAX_SOURCE == ThaxSource_AXIOM_NAMES else ""))
+    HP.ThaxSourceName(HP.THAX_SOURCE)+(str(HP.AXCNT_CUTOFF) if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES else ""))
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -493,11 +493,12 @@ def get_ancestors(seed,pars,**kwargs):
   return ancestors
 
 def abstract_initial(features):
+  sine = features[-1]
   goal = features[-3]
   thax = features[-2]
   # unite them together
   thax = -1 if features[-3] else features[-2]
-  return thax
+  return (thax,sine)
 
 def abstract_deriv(features):
   rule = features[-1]
@@ -630,15 +631,15 @@ def load_one(filename,max_size = None):
   return (init,deriv,pars,selec,good,axioms)
 
 def prepare_signature(prob_data_list):
-  init_sign = set()
+  thax_sign = set()
+  sine_sign = set()
   deriv_arits = {}
   axiom_hist = defaultdict(int)
 
   for probname, (init,deriv,pars,selec,good,axioms) in prob_data_list:
-    for id, features in init:
-      # already abstracted
-      thax = features
-      init_sign.add(thax)
+    for id, (thax,sine) in init:
+      thax_sign.add(thax)
+      sine_sign.add(sine)
 
     if HP.SWAPOUT > 0.0:
       # make sure we have 0 - the default embedding ...
@@ -666,11 +667,11 @@ def prepare_signature(prob_data_list):
     for id,ax in axioms.items():
       axiom_hist[ax] += 1
 
-  return (init_sign,deriv_arits,axiom_hist)
+  return (thax_sign,sine_sign,deriv_arits,axiom_hist)
 
-def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list,axcnt_cutoff):
+def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff):
   # (we didn't parse anything than 0 and -1 anyway:)
-  assert(0 in init_sign and (len(init_sign) == 1 or len(init_sign) == 2 and -1 in init_sign))
+  assert(0 in thax_sign and (len(thax_sign) == 1 or len(thax_sign) == 2 and -1 in thax_sign))
   
   new_prob_data_list = []
   
@@ -688,18 +689,16 @@ def axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list,axcnt_cutoff
 
   for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
     new_init = []
-    for id, features in init:
-      # already abstracted
-      thax = features
+    for id, (thax,sine) in init:
       if thax == 0: # don't name the conjecture
         if id in axioms and axioms[id] in ax_idx:
           thax = ax_idx[axioms[id]]
-      new_init.append((id,thax))
-      init_sign.add(thax)
+      new_init.append((id,(thax,sine)))
+      thax_sign.add(thax)
 
     new_prob_data_list.append((probname,(new_init,deriv,pars,selec,good,axioms)))
 
-  return init_sign,new_prob_data_list,thax_to_str
+  return thax_sign,new_prob_data_list,thax_to_str
 
 def normalize_prob_data(prob_data):
   # 1) it's better to have them in a list (for random.choice)
@@ -713,18 +712,14 @@ def normalize_prob_data(prob_data):
     id_max = 0
     new_init = []
     for id, features in init:
-      # already abstracted
-      thax = features
-      new_init.append((id+clause_offset, thax))
+      new_init.append((id+clause_offset, features))
     
       if id > id_max:
         id_max = id
 
     new_deriv = []
     for id, features in deriv:
-      # already abstracted
-      rule = features
-      new_deriv.append((id+clause_offset, rule))
+      new_deriv.append((id+clause_offset, features))
       
       if id > id_max:
         id_max = id

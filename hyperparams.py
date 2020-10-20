@@ -26,7 +26,7 @@ def ThaxSourceName(val):
   elif val == ThaxSource_AXIOM_NAMES:
     return "AxiomNames"
 
-THAX_SOURCE = ThaxSource_THAX_FEATURE
+THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
 AXCNT_CUTOFF = 10 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
@@ -84,7 +84,7 @@ LAYER_NORM = LayerNorm_ON
 
 DROPOUT = 0.5
 
-DEEPER = True
+DEEPER = False
 
 # LEARNING PARAMS:
 

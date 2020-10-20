@@ -48,6 +48,7 @@ if __name__ == "__main__":
 
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
 
+  '''
   tasks = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
@@ -60,40 +61,39 @@ if __name__ == "__main__":
   pool = Pool(processes=50)
   results = pool.map(load_one, tasks, chunksize = 100)
   prob_data_list = list(filter(None, results))
-
   '''
+  
   prob_data_list = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
       probname = line[:-1]
-      probdata = load_one((i,probname))
-      if probdata is not None:
-        prob_data_list.append((probname,probdata))
+      result = load_one((i,probname))
+      if result is not None:
+        prob_data_list.append(result)
       
       """
       if len(prob_data_list) >= 1000:
         break
       """
-  '''
 
   print(len(prob_data_list),"problems loaded!")
-  print()
 
-  init_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
+  thax_sign,sine_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
   if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES: # We want to use axiom names rather than theory_axiom ids:
-    init_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(init_sign,axiom_hist,prob_data_list,axcnt_cutoff=HP.AXCNT_CUTOFF)
+    thax_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff=HP.AXCNT_CUTOFF)
   else:
     thax_to_str = {}
 
-  print("init_sign",init_sign)
+  print("thax_sign",thax_sign)
+  print("sine_sign",sine_sign)
   print("deriv_arits",deriv_arits)
   #print("axiom_hist",axiom_hist)
   print("thax_to_str",thax_to_str)
 
   filename = "{}/data_sign.pt".format(sys.argv[1])
   print("Saving singature to",filename)
-  torch.save((init_sign,deriv_arits,thax_to_str), filename)
+  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), filename)
   print()
 
   filename = "{}/raw_log_data{}".format(sys.argv[1],IC.name_raw_data_siffix())
