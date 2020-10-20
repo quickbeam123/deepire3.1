@@ -105,6 +105,9 @@ if __name__ == "__main__":
   '''
   pool = Pool(processes=15)
   results = pool.map(eval_one, prob_data_list, chunksize = 5)
+  pool.close()
+  pool.join()
+  del pool
 
   cnt = 0
   posrate_sum = 0.0
