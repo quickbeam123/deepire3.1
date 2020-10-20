@@ -163,7 +163,7 @@ if __name__ == "__main__":
   prob_vals = []
   for logit in sorted(set(pos_cuts_fin) | set(neg_cuts_fin)):
     logits.append(logit)
-    cur_pos += pos_cuts_fin[logit]
+    cur_pos -= pos_cuts_fin[logit]
     pos_vals.append(cur_pos)
     cur_neg += neg_cuts_fin[logit]
     neg_vals.append(cur_neg)
@@ -179,19 +179,26 @@ if __name__ == "__main__":
   ax1.set_xlabel('logit value')
   ax1.set_ylabel('clause count (%)', color=color)
   lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ":", linewidth = 1, label = "neg_vals", color=color)
-  lps, = ax1.plot(logits, np.array(pos_vals)/pos_vals[-1], "--", linewidth = 1,label = "pos_vals", color=color)
+  lps, = ax1.plot(logits, (np.array(pos_vals)-pos_vals[-1])/(-pos_vals[-1]), "--", linewidth = 1,label = "pos_vals", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
+
+  ax1.axhline(0.0)
+  ax1.axhline(1.0)
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
   color = 'tab:red'
-  ax2.set_ylabel('problem count', color=color)  # we already handled the x-label with ax1
+  ax2.set_ylabel('problem %', color=color)  # we already handled the x-label with ax1
 
-  lpv, = ax2.plot(prob_logits, prob_vals, "+", label = "per_prob_pos_min", color=color)
+  lpv, = ax2.plot(prob_logits, np.array(prob_vals)/prob_vals[-1], "+", label = "per_prob_pos_min", color=color)
   ax2.tick_params(axis='y', labelcolor=color)
 
-  low,high = ax2.get_ylim()
-  ax2.set_ylim((-0.5,high))
+  low1,high1 = ax1.get_ylim()
+  low2,high2 = ax2.get_ylim()
+
+  # print(low1,high1)
+  # print(low2,high2)
+  # ax2.set_ylim((-0.5,high2))
 
   fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
