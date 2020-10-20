@@ -36,8 +36,36 @@ class Embed(torch.nn.Module):
   def forward(self) -> Tensor:
     return self.weight
 
+class Deepifyer(torch.nn.Module):
+  def __init__(self, dim : int):
+    super(Deepifyer, self).__init__()
+    if HP.DROPOUT > 0.0:
+      self.prolog = torch.nn.Dropout(HP.DROPOUT)
+    else:
+      self.prolog = torch.nn.Identity(dim)
+
+    if HP.NONLIN == HP.NonLinKind_TANH:
+      self.nonlin = torch.nn.Tanh()
+    else:
+      self.nonlin = torch.nn.ReLU()
+
+    self.meat = torch.nn.Linear(dim,dim)
+
+    if HP.LAYER_NORM == HP.LayerNorm_ON:
+      self.epilog = torch.nn.LayerNorm(dim)
+    else:
+      self.epilog = torch.nn.Identity(dim)
+
+  def forward(self,input : Tensor) -> Tensor:
+    x = self.prolog(input)
+    x = self.meat(x)
+    x = self.nonlin(x)
+    x = self.epilog(x)
+
+    # and we finish with the residual connection trick
+    return (input + x)/2.0
+
 class CatAndNonLinear(torch.nn.Module):
-  
   def __init__(self, dim : int, arit: int):
     super(CatAndNonLinear, self).__init__()
     
@@ -104,6 +132,16 @@ class CatAndNonLinearMultiary(CatAndNonLinear):
         return pair[0]
     return args[0] # this is bogus, just to make torch.jit.script happy
 
+class PairUp(torch.nn.Module): # we need this (instead of Sequential), because of "args : List[Tensor]" in forward (Sequential cannot be annotated for jit)
+  def __init__(self, m1 : torch.nn.Module, m2 : torch.nn.Module):
+    super(CastFromList, self).__init__()
+    self.m1 = m1
+    self.m2 = m2
+
+  def forward(self,args : List[Tensor]) -> Tensor:
+    x = self.m1(args)
+    return self.m2(x)
+
 def get_initial_model(init_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
   if HP.SWAPOUT > 0.0:
@@ -126,7 +164,11 @@ def get_initial_model(init_sign,deriv_arits):
     else:
       assert(arit == 3)
       deriv_mlps[str(rule)] = CatAndNonLinearMultiary(HP.EMBED_SIZE,2) # binary tree builder
-  
+
+  if HP.DEEPER:
+    for idx,model in deriv_mlps.items():
+      deriv_mlps[idx] = PairUp(model,Deepifyer(HP.EMBED_SIZE))
+
   if HP.EVAL_LAYER == HP.EvalLayerKind_LINEAR:
     eval_net = torch.nn.Sequential(
          torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
@@ -138,16 +180,20 @@ def get_initial_model(init_sign,deriv_arits):
          torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
          torch.nn.Linear(HP.EMBED_SIZE//2,1))
 
+  if HP.DEEPER:
+    eval_net = torch.nn.Sequential(Deepifyer(HP.EMBED_SIZE),eval_net)
+
   return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}.pt".format(
+  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}_Deeper{}.pt".format(
     HP.EMBED_SIZE,
     HP.NonLinKindName(HP.NONLIN),
     HP.CatLayerKindName(HP.CAT_LAYER),
     HP.EvalLayerKindName(HP.EVAL_LAYER),
     HP.LayerNormName(HP.LAYER_NORM),
-    HP.DROPOUT)
+    HP.DROPOUT,
+    HP.DEEPER)
 
 def name_learning_regime_suffix():
   return "_o{}_lr{}_p{}_swapout{}_trr{}.txt".format(

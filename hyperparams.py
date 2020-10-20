@@ -84,6 +84,8 @@ LAYER_NORM = LayerNorm_ON
 
 DROPOUT = 0.5
 
+DEEPER = True
+
 # LEARNING PARAMS:
 
 TestRiskRegimen_VALIDATE = 1

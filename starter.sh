@@ -2,7 +2,7 @@
 
 ulimit -Sn 10000
 
-./multi_inf_parallel.py smt4vamp_avOff/abstractOnlyBal smt4vamp_avOff/abstractOnlyBal/run128_p2.0_overfit 2>&1
+./multi_inf_parallel.py smt4vamp_avOff/abstractOnlyBal smt4vamp_avOff/abstractOnlyBal/run128_p2.0_overfit_deep 2>&1
 
 # ./multi_inf_parallel.py mizar_strat1/ mizar_strat1/frun128_p5n1_do 2>&1
 
