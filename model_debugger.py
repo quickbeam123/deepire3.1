@@ -16,6 +16,8 @@ import sys,random,itertools
 
 import numpy as np
 
+from multiprocessing import Pool
+
 import matplotlib.pyplot as plt
 
 def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit):
@@ -42,11 +44,20 @@ def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,m
 
   return posOK,posTot,negOK,negTot,min_pos_logit
 
-def eval_one(model,init,deriv,pars,selec,good,axioms,pos_cuts,neg_cuts,per_prob,probname):
+def eval_one(task):
+  (probname,(init,deriv,pars,selec,good,axioms)) = task
+  print(probname)
+  model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
+
   posOK = 0
   posTot = 0
   negOK = 0
   negTot = 0
+  
+  # keep collecting the logis values at which we would need to cut to get this clause classified as positive
+  pos_cuts = defaultdict(int)
+  neg_cuts = defaultdict(int)
+  
   min_pos_logit = sys.float_info.max
 
   for id, thax in init:
@@ -70,9 +81,7 @@ def eval_one(model,init,deriv,pars,selec,good,axioms,pos_cuts,neg_cuts,per_prob,
 
     posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
-  per_prob[min_pos_logit].append(probname)
-
-  return (posOK,posTot,negOK,negTot)
+  return (probname,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -87,20 +96,25 @@ if __name__ == "__main__":
   # To be called as in: ./model_debugger.py raw_log_data_*.pt torch_script_model.pt
 
   prob_data_list = torch.load(sys.argv[1])
+  '''
+  results = []
+  for task in prob_data_list:
+    res = eval_one(task)
+    print("Done",task[0])
+    results.append(res)
+  '''
+  pool = Pool(processes=15)
+  results = pool.map(eval_one, prob_data_list, chunksize = 5)
 
   cnt = 0
   posrate_sum = 0.0
   negrate_sum = 0.0
   
-  # keep collecting the logis values at which we would need to cut to get this clause classified as positive
-  pos_cuts = defaultdict(int)
-  neg_cuts = defaultdict(int)
   per_prob = defaultdict(list)
+  pos_cuts_fin = defaultdict(int)
+  neg_cuts_fin = defaultdict(int)
 
-  for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
-    model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
-
-    (posOK,posTot,negOK,negTot) = eval_one(model,init,deriv,pars,selec,good,axioms,pos_cuts,neg_cuts,per_prob,probname)
+  for (probname,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit) in results:
     
     posrate = posOK / posTot if posTot > 0 else 1.0
     negrate = negOK / negTot if negTot > 0 else 1.0
@@ -108,8 +122,17 @@ if __name__ == "__main__":
     cnt += 1
     print(probname)
     print(cnt,"Posrate",posrate,"negrate",negrate)
+  
     posrate_sum += posrate
     negrate_sum += negrate
+
+    for logit, val in pos_cuts.items():
+      pos_cuts_fin[logit] += val
+    
+    for logit, val in neg_cuts.items():
+      neg_cuts_fin[logit] += val
+
+    per_prob[min_pos_logit].append(probname)
 
   print()
   print("Total probs:",cnt)
@@ -119,7 +142,7 @@ if __name__ == "__main__":
   print()
   print("per_prob pos example logit minima")
   for logit, problems in sorted(per_prob.items()):
-    print(logit,problems)
+    print(logit,len(problems))
 
   print()
   print("Plotting")
@@ -131,11 +154,11 @@ if __name__ == "__main__":
   neg_vals = []
   cur_prob = 0
   prob_vals = []
-  for logit in sorted(set(pos_cuts) | set(neg_cuts)):
+  for logit in sorted(set(pos_cuts_fin) | set(neg_cuts_fin)):
     logits.append(logit)
-    cur_pos += pos_cuts[logit]
+    cur_pos += pos_cuts_fin[logit]
     pos_vals.append(cur_pos)
-    cur_neg += neg_cuts[logit]
+    cur_neg += neg_cuts_fin[logit]
     neg_vals.append(cur_neg)
     cur_prob += len(per_prob[logit])
     prob_vals.append(cur_prob)
@@ -154,7 +177,7 @@ if __name__ == "__main__":
   color = 'tab:red'
   ax2.set_ylabel('problem count', color=color)  # we already handled the x-label with ax1
 
-  lpv, = ax2.plot(logits, prob_vals, "*", label = "per_prob_pos_min", color=color)
+  lpv, = ax2.plot(logits, prob_vals, "+", label = "per_prob_pos_min", color=color)
   ax2.tick_params(axis='y', labelcolor=color)
 
   fig.tight_layout()  # otherwise the right y-label is slightly clipped
@@ -164,7 +187,7 @@ if __name__ == "__main__":
   # plt.show()
 
   filename = "debugger_plot.png"
-  plt.savefig(filename,dpi=250)
+  plt.savefig(filename,dpi=500)
   print("Saved final plot to",filename)
   plt.close(fig)
 
