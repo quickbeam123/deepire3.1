@@ -21,6 +21,8 @@ from multiprocessing import Pool
 import matplotlib.pyplot as plt
 
 def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit):
+  howmuch = 1.0/len(selec)
+  
   # print(id,thax,val,id in selec,id in good)
   logit = model(id) # calling forward
   # print(id,thax,logit,id in selec,id in good)
@@ -28,19 +30,19 @@ def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,m
 
   if id in selec:
     if id in good:
-      pos_cuts[logit] += 1
-      posTot += 1
+      pos_cuts[logit] += howmuch
+      posTot += howmuch
       if val:
-        posOK += 1
+        posOK += howmuch
       
       if logit < min_pos_logit:
         min_pos_logit = logit
   
     else:
-      neg_cuts[logit] += 1
-      negTot += 1
+      neg_cuts[logit] += howmuch
+      negTot += howmuch
       if not val:
-        negOK += 1
+        negOK += howmuch
 
   return posOK,posTot,negOK,negTot,min_pos_logit
 
@@ -49,10 +51,10 @@ def eval_one(task):
   print(probname)
   model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
 
-  posOK = 0
-  posTot = 0
-  negOK = 0
-  negTot = 0
+  posOK = 0.0
+  posTot = 0.0
+  negOK = 0.0
+  negTot = 0.0
   
   # keep collecting the logis values at which we would need to cut to get this clause classified as positive
   pos_cuts = defaultdict(int)
@@ -156,6 +158,8 @@ if __name__ == "__main__":
   cur_neg = 0
   neg_vals = []
   cur_prob = 0
+  
+  prob_logits = []
   prob_vals = []
   for logit in sorted(set(pos_cuts_fin) | set(neg_cuts_fin)):
     logits.append(logit)
@@ -163,10 +167,13 @@ if __name__ == "__main__":
     pos_vals.append(cur_pos)
     cur_neg += neg_cuts_fin[logit]
     neg_vals.append(cur_neg)
-    cur_prob += len(per_prob[logit])
-    prob_vals.append(cur_prob)
+    
+    if per_prob[logit]:
+      prob_logits.append(logit)
+      cur_prob += len(per_prob[logit])
+      prob_vals.append(cur_prob)
 
-  fig, ax1 = plt.subplots()
+  fig, ax1 = plt.subplots(figsize=(8, 6))
 
   color = 'tab:blue'
   ax1.set_xlabel('logit value')
@@ -180,8 +187,11 @@ if __name__ == "__main__":
   color = 'tab:red'
   ax2.set_ylabel('problem count', color=color)  # we already handled the x-label with ax1
 
-  lpv, = ax2.plot(logits, prob_vals, "+", label = "per_prob_pos_min", color=color)
+  lpv, = ax2.plot(prob_logits, prob_vals, "+", label = "per_prob_pos_min", color=color)
   ax2.tick_params(axis='y', labelcolor=color)
+
+  low,high = ax2.get_ylim()
+  ax2.set_ylim((-0.5,high))
 
   fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
@@ -190,7 +200,7 @@ if __name__ == "__main__":
   # plt.show()
 
   filename = "debugger_plot.png"
-  plt.savefig(filename,dpi=500)
+  plt.savefig(filename,dpi=250)
   print("Saved final plot to",filename)
   plt.close(fig)
 
