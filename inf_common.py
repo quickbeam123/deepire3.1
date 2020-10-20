@@ -377,7 +377,7 @@ class LearningModel(torch.nn.Module):
       init_embeds : torch.nn.ModuleDict,
       deriv_mlps : torch.nn.ModuleDict,
       eval_net : torch.nn.Module,
-      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg):
+      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg,save_logits = False):
     super(LearningModel,self).__init__()
   
     self.init_embeds = init_embeds
@@ -391,6 +391,11 @@ class LearningModel(torch.nn.Module):
     self.neg_vals = neg_vals
   
     pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos
+  
+    if save_logits:
+      self.logits = {}
+    else:
+      self.logits = None
   
     '''
     print()
@@ -406,6 +411,9 @@ class LearningModel(torch.nn.Module):
   
   def contribute(self, id: int, embed : Tensor):
     val = self.eval_net(embed)
+    
+    if self.logits is not None:
+      self.logits[id] = val.item()
     
     pos = self.pos_vals[id]
     neg = self.neg_vals[id]
@@ -427,7 +435,7 @@ class LearningModel(torch.nn.Module):
     print("gold",pos/(pos+neg))
     
     print("loss",(pos+neg),"*",contrib.item())
-    print()
+    print(flush=True)
     '''
     
     return (pos+neg)*contrib
