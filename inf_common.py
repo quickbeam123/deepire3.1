@@ -773,29 +773,23 @@ def compress_prob_data(some_probs):
       out_probname = probname
 
     for old_id, features in init:
-      # already abstracted
-      thax = features
-
-      abskey = (thax)
+      abskey = features
 
       if abskey not in abs2new:
         new_id = id_cnt
         id_cnt += 1
 
         abs2new[abskey] = new_id
-        out_init.append((new_id,thax))
+        out_init.append((new_id,features))
       else:
         new_id = abs2new[abskey]
 
       old2new[old_id] = new_id
 
     for old_id, features in deriv:
-      # already abstracted
-      rule = features
-
       new_pars = [old2new[par] for par in pars[old_id]]
       
-      abskey = tuple([rule]+new_pars)
+      abskey = tuple([features]+new_pars)
 
       if abskey not in abs2new:
         new_id = id_cnt
@@ -803,7 +797,7 @@ def compress_prob_data(some_probs):
 
         abs2new[abskey] = new_id
         
-        out_deriv.append((new_id,rule))
+        out_deriv.append((new_id,features))
         out_pars[new_id] = new_pars
       else:
         new_id = abs2new[abskey]

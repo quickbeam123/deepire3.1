@@ -133,8 +133,8 @@ if __name__ == "__main__":
     master_parts = torch.load(sys.argv[3])
     print("Loaded model parts",sys.argv[3])
   else:
-    init_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
-    master_parts = IC.get_initial_model(init_sign,deriv_arits)
+    thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+    master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
     model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name)
