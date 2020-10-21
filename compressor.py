@@ -232,14 +232,16 @@ if __name__ == "__main__":
 
     prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
 
-  if True: # Big compression now:
+  if False: # Big compression now:
     print("Grand compression")
     (joint_probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) = IC.compress_prob_data(prob_data_list)
 
+    '''
     for id in sorted(set(pos_vals) | set(neg_vals)):
       print(id, pos_vals[id], neg_vals[id])
     print(tot_pos)
     print(tot_neg)
+    '''
 
     filename = "{}/big_blob.pt".format(sys.argv[1])
     print("Saving big blob to",filename)

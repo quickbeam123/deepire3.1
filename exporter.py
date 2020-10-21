@@ -27,10 +27,10 @@ if __name__ == "__main__":
 
   # inf_41_Tanh_p0.9905907013270361_n0.6047052650764457.pt
 
-  init_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
   print("Loaded signature from",sys.argv[1])
 
-  IC.create_saver(init_sign,deriv_arits,thax_to_str)
+  IC.create_saver(deriv_arits)
   import inf_saver as IS
 
   parts = torch.load(sys.argv[2])

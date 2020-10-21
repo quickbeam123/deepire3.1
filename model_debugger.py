@@ -62,24 +62,26 @@ def eval_one(task):
   
   min_pos_logit = sys.float_info.max
 
-  for id, thax in init:
+  for id, (thax,sine) in init:
     if thax == -1:
       st = "-1"
     elif id in axioms:
       st = axioms[id]
     else:
       st = str(thax)
-    getattr(model,"new_init")(id,[0,0,0,1,0,0],st)
+    
+    # communication via st and sine
+    getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
 
     posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
-  for id, rule in deriv:
+  for id, (rule) in deriv:
     if rule == 666:
       my_pars = pars[id]
       assert(len(my_pars) == 1)
-      getattr(model,"new_avat")(id,[0,0,0,my_pars[0]])
+      getattr(model,"new_avat")(id,[-1,-1,-1,my_pars[0]])
     else:
-      getattr(model,"new_deriv{}".format(rule))(id,[0,0,0,0,rule],pars[id])
+      getattr(model,"new_deriv{}".format(rule))(id,[-1,-1,-1,-1,rule],pars[id])
 
     posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
@@ -178,12 +180,14 @@ if __name__ == "__main__":
   color = 'tab:blue'
   ax1.set_xlabel('logit value')
   ax1.set_ylabel('clause count (%)', color=color)
-  lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ":", linewidth = 1, label = "neg_vals", color=color)
-  lps, = ax1.plot(logits, (np.array(pos_vals)-pos_vals[-1])/(-pos_vals[-1]), "--", linewidth = 1,label = "pos_vals", color=color)
+  lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ".", linewidth = 1, label = "neg_vals", color="green")
+  lps, = ax1.plot(logits, (np.array(pos_vals)-pos_vals[-1])/(-pos_vals[-1]), ".", linewidth = 1,label = "pos_vals", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
   ax1.axhline(0.0)
   ax1.axhline(1.0)
+
+  ax1.axvline(0.0)
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
@@ -206,7 +210,7 @@ if __name__ == "__main__":
 
   # plt.show()
 
-  filename = "debugger_plot.png"
+  filename = "debugger_plot_{}.png".format(sys.argv[2].split("/")[-1])
   plt.savefig(filename,dpi=250)
   print("Saved final plot to",filename)
   plt.close(fig)

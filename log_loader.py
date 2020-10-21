@@ -96,7 +96,7 @@ if __name__ == "__main__":
   torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), filename)
   print()
 
-  filename = "{}/raw_log_data{}".format(sys.argv[1],IC.name_raw_data_siffix())
+  filename = "{}/raw_log_data{}".format(sys.argv[1],IC.name_raw_data_suffix())
   print("Saving raw data to",filename)
   torch.save(prob_data_list, filename)
   print()

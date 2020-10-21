@@ -28,7 +28,9 @@ def ThaxSourceName(val):
 
 THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
-AXCNT_CUTOFF = 10 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+AXCNT_CUTOFF = 1000 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+
+USE_SINE = False
 
 # MODEL PARAMS:
 
@@ -82,7 +84,7 @@ def LayerNormName(val):
 
 LAYER_NORM = LayerNorm_ON
 
-DROPOUT = 0.5
+DROPOUT = 0.1
 
 DEEPER = False
 
@@ -97,7 +99,7 @@ def TestRiskRegimenName(val):
   elif val == TestRiskRegimen_OVERFIT:
     return "OVERFIT"
 
-TRR = TestRiskRegimen_OVERFIT
+TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.001

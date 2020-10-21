@@ -16,6 +16,14 @@ from torch import Tensor
 torch.set_num_threads(1)
 
 from typing import Dict, List, Tuple, Optional
+
+try:
+    from typing_extensions import Final
+except:
+    # If you don't have `typing_extensions` installed, you can use a
+    # polyfill from `torch.jit`.
+    from torch.jit import Final
+
 from collections import defaultdict
 import sys,random
 
@@ -138,17 +146,46 @@ class PairUp(torch.nn.Module): # we need this (instead of Sequential), because o
     self.m1 = m1
     self.m2 = m2
 
-  def forward(self,args : List[Tensor]) -> Tensor:
+  def forward(self,args : int) -> Tensor:
     x = self.m1(args)
     return self.m2(x)
+
+class SineEmbedder(torch.nn.Module):
+  effective_max: Final[int]
+
+  def __init__(self, dim : int, effective_max : int):
+    super(SineEmbedder, self).__init__()
+    self.net = torch.nn.Linear(1,dim)
+    self.effective_max = effective_max
+
+  def forward(self,sine : int) -> Tensor:
+    if sine == 255:
+      sine = self.effective_max
+    val = 1.0-sine/self.effective_max
+    return self.net(torch.tensor([val]))
+
+class EmptySineEmbedder(torch.nn.Module):
+  def __init__(self, dim : int):
+    super(EmptySineEmbedder, self).__init__()
+    self.dim = dim
+
+  def forward(self,sine : int) -> Tensor:
+    return torch.zeros(self.dim) # ignoring sine
 
 def get_initial_model(thax_sign,sine_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
   if HP.SWAPOUT > 0.0:
-    assert(-1 in init_sign) # to have conjecture embedding
-    assert(0 in init_sign)  # to have user-fla embedding
+    assert(-1 in thax_sign) # to have conjecture embedding
+    assert(0 in thax_sign)  # to have user-fla embedding
   
-  for i in init_sign:
+  if HP.USE_SINE:
+    sine_sign.remove(255)
+    sine_effective_max = max(sine_sign)+1
+    sine_embedder = SineEmbedder(HP.EMBED_SIZE,sine_effective_max)
+  else:
+    sine_embedder = EmptySineEmbedder(HP.EMBED_SIZE)
+
+  for i in thax_sign:
     init_embeds[str(i)] = Embed(HP.EMBED_SIZE)
 
   if HP.SWAPOUT > 0.0:
@@ -183,17 +220,18 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
   if HP.DEEPER:
     eval_net = torch.nn.Sequential(Deepifyer(HP.EMBED_SIZE),eval_net)
 
-  return torch.nn.ModuleList([init_embeds,deriv_mlps,eval_net])
+  return torch.nn.ModuleList([init_embeds,sine_embedder,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}_Deeper{}.pt".format(
+  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}{}{}.pt".format(
     HP.EMBED_SIZE,
     HP.NonLinKindName(HP.NONLIN),
     HP.CatLayerKindName(HP.CAT_LAYER),
     HP.EvalLayerKindName(HP.EVAL_LAYER),
     HP.LayerNormName(HP.LAYER_NORM),
     HP.DROPOUT,
-    HP.DEEPER)
+    "_Deeper" if HP.DEEPER else "",
+    "_UseSine" if HP.USE_SINE else "")
 
 def name_learning_regime_suffix():
   return "_o{}_lr{}_p{}_swapout{}_trr{}.txt".format(
@@ -203,7 +241,7 @@ def name_learning_regime_suffix():
     HP.SWAPOUT,
     HP.TestRiskRegimenName(HP.TRR))
 
-def name_raw_data_siffix():
+def name_raw_data_suffix():
   return "_av{}_thax{}.pt".format(
     HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
     HP.ThaxSourceName(HP.THAX_SOURCE)+(str(HP.AXCNT_CUTOFF) if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES else ""))
@@ -226,7 +264,7 @@ def save_net(name,parts,parts_copies):
       param.requires_grad = False
 
   # from here on only use the updated copies
-  (init_embeds,deriv_mlps,eval_net) = parts_copies
+  (init_embeds,sine_embedder,deriv_mlps,eval_net) = parts_copies
   
   initEmbeds = {}
   for ax_name,embed in init_embeds.items():
@@ -238,14 +276,16 @@ def save_net(name,parts,parts_copies):
     initEmbeds : Dict[str, Tensor]
     
     def __init__(self,
-        initEmbeds : Dict[str, Tensor],'''
+        initEmbeds : Dict[str, Tensor],
+        sine_embedder : torch.nn.Module,'''
 
 bigpart2 ='''        eval_net : torch.nn.Module):
       super(InfRecNet, self).__init__()
 
       self.store = {}
       
-      self.initEmbeds = initEmbeds'''
+      self.initEmbeds = initEmbeds
+      self.sine_embedder = sine_embedder'''
       
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
@@ -259,7 +299,8 @@ bigpart_no_longer_rec1 = '''
         embed = self.initEmbeds[name]
       else:
         embed = self.initEmbeds["0"]
-      self.store[id] = embed'''
+      sine = self.sine_embedder(features[-1])
+      self.store[id] = embed+sine'''
 
 bigpart_rec2='''
     @torch.jit.export
@@ -279,49 +320,29 @@ bigpart_avat = '''
       self.store[id] = embed'''
 
 bigpart3 = '''
-  module = torch.jit.script(InfRecNet(
-    initEmbeds,'''
+  module = InfRecNet(
+    initEmbeds,
+    sine_embedder,'''
 
 bigpart4 = '''    eval_net
-    ))
-  module.save(name)'''
+    )
+  script = torch.jit.script(module)
+  script.save(name)'''
 
-def create_saver(init_sign,deriv_arits,thax_to_str):
+def create_saver(deriv_arits):
   with open("inf_saver.py","w") as f:
     print(bigpart1,file=f)
-
-    '''
-    for i in sorted(init_sign):
-      if i > 0: # the other ones are already there
-        print("        init_{} : torch.nn.Module,".format(i),file=f)
-    '''
 
     for rule in sorted(deriv_arits):
       print("        deriv_{} : torch.nn.Module,".format(rule),file=f)
 
     print(bigpart2,file=f)
 
-    '''
-    for i in sorted(init_sign):
-      if i > 0:
-        print("      self.init_{} = init_{}".format(i,i),file=f)
-    '''
-
-    # print("      self.deriv_1 = deriv_1",file=f)
-    # print("      self.deriv_2 = deriv_2",file=f)
     for rule in sorted(deriv_arits):
       print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
     print("      self.eval_net = eval_net",file=f)
 
     print(bigpart_no_longer_rec1,file=f)
-    
-    '''
-    print(bigpart_rec1.format("0","0"),file=f)
-
-    for i in sorted(init_sign):
-      if i > 0:
-        print(bigpart_rec1.format(thax_to_str[i] if i in thax_to_str else str(i),str(i)),file=f)
-    '''
 
     for rule in sorted(deriv_arits):
       if rule < 666: # avatar done differently in bigpart3
@@ -331,43 +352,8 @@ def create_saver(init_sign,deriv_arits,thax_to_str):
       print(bigpart_avat,file=f)
 
     print(bigpart3,file=f)
-    '''
-    for i in sorted(init_sign):
-      if i > 0: # the other ones are already there
-        print("    init_embeds['{}'],".format(i),file=f)
-    '''
+
     for rule in sorted(deriv_arits):
-      print("    deriv_mlps['{}'],".format(rule),file=f)
-    print(bigpart4,file=f)
-
-
-def create_saver_old(init_hist,deriv_hist):
-  with open("inf_saver_old.py","w") as f:
-    print(bigpart1,file=f)
-
-    for (rule, arit) in sorted(deriv_hist):
-      print("        deriv_{} : torch.nn.Module,".format(rule),file=f)
-
-    print(bigpart2,file=f)
-
-    print("      self.deriv_1 = deriv_1",file=f)
-    print("      self.deriv_2 = deriv_2",file=f)
-    for (rule, arit) in sorted(deriv_hist):
-      print("      self.deriv_{} = deriv_{}".format(rule,rule),file=f)
-    print("      self.eval_net = eval_net",file=f)
-
-    print(bigpart_no_longer_rec1,file=f)
-
-    for (rule, arit) in sorted(deriv_hist):
-      if rule < 666: # avatar done differently in bigpart3
-        print(bigpart_rec2.format(str(rule),str(rule)),file=f)
-
-    if (666,1) in deriv_hist:
-      print(bigpart_avat,file=f)
-
-    print(bigpart3,file=f)
-
-    for (rule, arit) in sorted(deriv_hist):
       print("    deriv_mlps['{}'],".format(rule),file=f)
     print(bigpart4,file=f)
 
@@ -375,12 +361,14 @@ def create_saver_old(init_hist,deriv_hist):
 class LearningModel(torch.nn.Module):
   def __init__(self,
       init_embeds : torch.nn.ModuleDict,
+      sine_embedder: torch.nn.Module,
       deriv_mlps : torch.nn.ModuleDict,
       eval_net : torch.nn.Module,
       init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg,save_logits = False):
     super(LearningModel,self).__init__()
   
     self.init_embeds = init_embeds
+    self.sine_embedder = sine_embedder
     self.deriv_mlps = deriv_mlps
     self.eval_net = eval_net
     
@@ -452,11 +440,14 @@ class LearningModel(torch.nn.Module):
     
     loss = torch.zeros(1)
     
-    for id, thax in self.init:
+    for id, (thax,sine) in self.init:
       if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
         embed = self.init_embeds[str(0)]()
       else:
         embed = self.init_embeds[str(thax)]()
+    
+      if HP.USE_SINE:
+        embed = embed + self.sine_embedder(sine)
       
       store[id] = embed
       if id in self.pos_vals or id in self.neg_vals:
@@ -493,11 +484,9 @@ def get_ancestors(seed,pars,**kwargs):
   return ancestors
 
 def abstract_initial(features):
-  sine = features[-1]
   goal = features[-3]
-  thax = features[-2]
-  # unite them together
-  thax = -1 if features[-3] else features[-2]
+  thax = -1 if goal else features[-2]
+  sine = features[-1]
   return (thax,sine)
 
 def abstract_deriv(features):
