@@ -48,7 +48,6 @@ if __name__ == "__main__":
 
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
 
-  '''
   tasks = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
@@ -60,9 +59,12 @@ if __name__ == "__main__":
       tasks.append((i,probname))
   pool = Pool(processes=50)
   results = pool.map(load_one, tasks, chunksize = 100)
+  pool.close()
+  pool.join()
+  del pool
   prob_data_list = list(filter(None, results))
+
   '''
-  
   prob_data_list = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
@@ -75,6 +77,7 @@ if __name__ == "__main__":
       if len(prob_data_list) >= 1000:
         break
       """
+  '''
 
   print(len(prob_data_list),"problems loaded!")
 
