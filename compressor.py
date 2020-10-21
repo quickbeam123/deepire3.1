@@ -5,7 +5,7 @@ import inf_common as IC
 import torch
 from torch import Tensor
 
-import time,bisect,random,math
+import time,bisect,random,math,os,errno
 
 from typing import Dict, List, Tuple, Optional
 
@@ -103,6 +103,8 @@ if __name__ == "__main__":
   # finally, 80-20 split on the suffled list is performed and training_data.pt validation_data.pt are saved to folder
 
   prob_data_list = torch.load(sys.argv[2])
+  
+  # prob_data_list = prob_data_list[:10]
   
   print("Loaded raw prob_data_list of len:",len(prob_data_list))
 
@@ -226,18 +228,47 @@ if __name__ == "__main__":
 
     print("Done")
 
-  if True:
+  if False:
     prob_data_list = compress_to_treshold(prob_data_list,treshold = 10000)
+
+  print("Saving pieces")
+  dir = "{}/pieces".format(sys.argv[1])
+  try:
+    os.mkdir(dir)
+  except OSError as exc:
+    if exc.errno != errno.EEXIST:
+        raise
+    pass
+  for i,(probname,rest) in enumerate(prob_data_list):
+    piece_name = "piece{}.pt".format(i)
+    torch.save(rest, "{}/{}".format(dir,piece_name))
+    prob_data_list[i] = piece_name
+  print("Done")
 
   random.shuffle(prob_data_list)
   spl = math.ceil(len(prob_data_list) * 0.8)
   print("shuffled and split at idx",spl,"out of",len(prob_data_list))
+  print()
+
+  # save just names:
+  filename = "{}/training_index.pt".format(sys.argv[1])
+  print("Saving training part to",filename)
+  torch.save(prob_data_list[:spl], filename)
+  filename = "{}/validation_index.pt".format(sys.argv[1])
+  print("Saving validation part to",filename)
+  torch.save(prob_data_list[spl:], filename)
+
+  exit(0)
+
+  # the old way below:
 
   filename = "{}/training_data.pt".format(sys.argv[1])
   print("Saving training part to",filename)
   torch.save(prob_data_list[:spl], filename)
   filename = "{}/validation_data.pt".format(sys.argv[1])
-  print("Saving testing part to",filename)
+  print("Saving validation part to",filename)
   torch.save(prob_data_list[spl:], filename)
+
+
 
 
