@@ -102,10 +102,8 @@ if __name__ == "__main__":
     size = (pos+neg)
     color = pos/size
     
-    '''
-    if id > 100:
+    if id > 2048:
       break
-    '''
     epochs = []
     logits = []
     for (i,logits_dict) in sorted(results):
