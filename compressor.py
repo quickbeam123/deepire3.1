@@ -14,11 +14,7 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-def just_not_to_lose_for_now():
-  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
-  parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
-
-  prob_data_list = torch.load(sys.argv[2]) # [ probname, (init,deriv,pars,selec,good)]
+def compress_to_treshold(prob_data_list,treshold):
   
   size_hist = defaultdict(int)
   
@@ -33,23 +29,6 @@ def just_not_to_lose_for_now():
     size_and_prob.append((size,(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
     
     size_hist[len(init)+len(deriv)] += 1
-    # print(i,probname,size)
-    '''
-    start_time = time.time()
-    model = IC.LearningModel(*parts,init,deriv,pars,selec,good)
-    (loss,posRate,negRate) = model()
-    model_time = time.time()-start_time
-    print("Model in",model_time)
-  
-    sizes.append(size)
-    times.append(model_time)
-    '''
-
-  '''
-  import matplotlib.pyplot as plt
-  plt.scatter(sizes, times)
-  plt.savefig("times_scatter.png",dpi=250)
-  '''
 
   print("size_hist")
   tot = 0
@@ -68,7 +47,6 @@ def just_not_to_lose_for_now():
   print("Big",big)
   print("Small",small)
 
-  treshold = 10000
   print("Compressing for treshold",treshold)
   size_and_prob.sort()
   
@@ -107,8 +85,7 @@ def just_not_to_lose_for_now():
 
   print()
   print("Compressed to",len(compressed),"merged problems")
-  torch.save(compressed,sys.argv[3])
-  print("Save to",sys.argv[3])
+  return compressed
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -248,6 +225,9 @@ if __name__ == "__main__":
     torch.save((init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg), filename)
 
     print("Done")
+
+  if True:
+    prob_data_list = compress_to_treshold(prob_data_list,treshold = 10000)
 
   random.shuffle(prob_data_list)
   spl = math.ceil(len(prob_data_list) * 0.8)
