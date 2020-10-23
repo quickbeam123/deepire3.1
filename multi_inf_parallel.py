@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
-import os
-
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+import inf_common as IC
+import hyperparams as HP
 
 import torch
 
@@ -26,12 +21,11 @@ import sys,random,itertools
 
 import numpy as np
 
-import inf_common as IC
-import hyperparams as HP
+import os
 
-NUMPROCESSES = 20
+NUMPROCESSES = 5
 
-DATA_THROUGH_QUEUE = False
+DATA_THROUGH_QUEUE = True
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -193,7 +187,7 @@ if __name__ == "__main__":
   while True:
     epoch += EPOCHS_BEFORE_VALIDATION
    
-    if epoch > 150:
+    if epoch > 100:
       break
     
     times.append(epoch)
