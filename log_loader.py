@@ -26,7 +26,7 @@ def load_one(task):
   probdata = IC.load_one(probname) # ,max_size=15000)
   print("Took",time.time()-start_time)
   if probdata:
-    return probname,probdata
+    return probname.split("/")[-1],probdata
   else:
     None
 
