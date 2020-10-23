@@ -19,7 +19,7 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from collections import ChainMap
 
-import sys,random,itertools,os
+import sys,random,itertools,os,gc
 
 import numpy as np
 
@@ -33,36 +33,28 @@ def copy_grads_back_from_param(parts,parts_copies):
     # print("Copy.grad",param_copy.grad)
     param.grad = param_copy
 
-def eval_and_or_learn_on_one(probname,parts_file,training):
+def eval_and_or_learn_on_one(probname,parts_file,training,log):
+
+  data = torch.load("{}/pieces/{}".format(sys.argv[1],probname))
+  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
+
   myparts = torch.load(parts_file)
   
   # not sure if there is any after load -- TODO: check if necessary
   for param in myparts.parameters():
     # taken from Optmizier zero_grad, roughly
     if param.grad is not None:
+      print("Loaded param with with a grad",log)
       param.grad.detach_()
       param.grad.zero_()
-  
-  data = torch.load("{}/pieces/{}".format(sys.argv[1],probname))
 
-  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
-  
   # print("Datum of size",len(init)+len(deriv))
-  
-  model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
-  
-  # print("Model created")
-  
+
   if training:
+    model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
     model.train()
-  else:
-    model.eval()
+    (loss,posRate,negRate) = model()
   
-  (loss,posRate,negRate) = model()
-  
-  # print("Model evaluated")
-  
-  if training:
     loss.backward()
     # put grad into actual tensor to be returned below (gradients don't go through the Queue)
     for param in myparts.parameters():
@@ -72,19 +64,204 @@ def eval_and_or_learn_on_one(probname,parts_file,training):
         param.copy_(grad)
       else:
         param.zero_()
-      param.requires_grad = True # to be ready for the next learning when assigned to a new job
-
+  
+    result = (loss[0].detach().item(),posRate,negRate)
+    
     torch.save(myparts,parts_file)
+  
+  else:
+    with torch.no_grad():
+      model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
+      model.eval()
+      (loss,posRate,negRate) = model()
 
-  return (loss[0].item(),posRate,negRate)
+      result = (loss[0].detach().item(),posRate,negRate)
+
+  return result
 
 def worker(q_in, q_out):
+
+  # log = open("worker{}.log".format(os.getpid()), 'w')
+  log = sys.stdout
+
+  # from guppy import hpy
+  # h = hpy()
+
+  '''
+  import tracemalloc
+  tracemalloc.start(10)  # save upto 5 stack frames
+  
+  time1 = tracemalloc.take_snapshot()
+  time2 = None
+  '''
+
   while True:
-    (idx,probname,parts_file,training) = q_in.get()
+    (probname,parts_file,training) = q_in.get()
     
     start_time = time.time()
-    (loss,posRate,negRate) = eval_and_or_learn_on_one(probname,parts_file,training)
-    q_out.put((idx,loss,posRate,negRate,parts_file,start_time,time.time()))
+    (loss,posRate,negRate) = eval_and_or_learn_on_one(probname,parts_file,training,log)
+    q_out.put((probname,loss,posRate,negRate,parts_file,start_time,time.time()))
+
+    '''
+    cnt = 0
+    sizes = 0
+    for tracked_object in gc.get_objects():
+      cnt += 1
+      sizes += sys.getsizeof(tracked_object)
+    print("begofeGC",cnt,"objects of total size",sizes,file=log,flush=True)
+
+    stat = gc.collect()
+    
+    print("collected",stat,file=f,flush=True)
+    
+    cnt = 0
+    sizes = 0
+    for tracked_object in gc.get_objects():
+      cnt += 1
+      sizes += sys.getsizeof(tracked_object)
+    print("afterGC",cnt,"objects of total size",sizes,file=log,flush=True)
+    '''
+
+    '''
+    if time2 is not None:
+      print("Diff to prev",file=log,flush=True)
+      new_time = tracemalloc.take_snapshot()
+      stats = new_time.compare_to(time2, 'lineno')
+      for stat in stats[:10]:
+        print(stat,file=f)
+      stats = new_time.compare_to(time2, 'traceback')
+      top = stats[0]
+      print('\n'.join(top.traceback.format()),file=f,flush=True)
+      time2 = new_time
+    else:
+      time2 = tracemalloc.take_snapshot()
+
+    print("\nDiff to base",file=log,flush=True)
+    stats = time2.compare_to(time1, 'lineno')
+    for stat in stats[:10]:
+      print(stat,file=f)
+    stats = time2.compare_to(time1, 'traceback')
+    top = stats[0]
+    print('\n'.join(top.traceback.format()),file=log,flush=True)
+    '''
+    # print(h.heap(),file=log,flush=True)
+
+def big_go_last(feed_sequence):
+  WHAT_IS_BIG = 6000
+
+  big = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_BIG]
+  small = [(size,piece_name) for (size,piece_name) in feed_sequence if size <= WHAT_IS_BIG]
+
+  print("big_go_last",len(small),len(big))
+
+  big.sort() # start with the really big ones so that we are finished with them before the next iteration would be about to start
+
+  return small+big
+
+def loop_it_out(start_time,t,feed_sequence,training):
+  MAX_ACTIVE_TASKS = NUMPROCESSES
+  
+  num_active_tasks = 0
+  
+  statistics = []
+  
+  if not training:
+    parts_file = "{}/master_{}.pt".format(SCRATCH,os.getpid())
+    torch.save(master_parts,parts_file)
+  
+  while feed_sequence or num_active_tasks > 0:
+    # we use parts_copies as a counter of idle children in the pool
+    while num_active_tasks < MAX_ACTIVE_TASKS and feed_sequence:
+      t += 1
+      num_active_tasks += 1
+      (size,probname) = feed_sequence.pop()
+      
+      print(time.time() - start_time,"time_idx",t,"starting {} job on problem".format("training" if training else "validation"),probname,"of size",size)
+      
+      if training:
+        parts_file = "{}/parts_{}_{}.pt".format(SCRATCH,os.getpid(),t)
+        torch.save(master_parts,parts_file)
+        print(time.time() - start_time,"parts saved")
+          
+      q_in.put((probname,parts_file,training))
+      print(time.time() - start_time,"put finished")
+      print()
+
+    print(time.time() - start_time,"about to call get")
+    (probname,loss,posRate,negRate,parts_file,time_start,time_end) = q_out.get() # this may block
+    print(time.time() - start_time,"get finished")
+    
+    num_active_tasks -= 1
+    if training:
+      his_parts = torch.load(parts_file)
+      os.remove(parts_file)
+      copy_grads_back_from_param(master_parts,his_parts)
+      print(time.time() - start_time,"copy_grads_back_from_param finished")
+      optimizer.step()
+      print(time.time() - start_time,"optimizer.step() finished")
+
+    print(time.time() - start_time,"job finished at on problem",probname,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
+    print("Local:",loss,posRate,negRate)
+    print()
+    statistics.append((loss,posRate,negRate))
+  
+    cnt = 0
+    sizes = 0
+    for tracked_object in gc.get_objects():
+      cnt += 1
+      sizes += sys.getsizeof(tracked_object)
+    print("gc-info",cnt,"objects of total size",sizes,flush=True)
+  
+  if not training:
+    os.remove(parts_file)
+    
+  return (t,statistics)
+
+  '''
+  print("gc.get_stats()",gc.get_stats())
+  cnt = 0
+  sizes = 0
+  for tracked_object in gc.get_objects():
+    cnt += 1
+    sizes += sys.getsizeof(tracked_object)
+  print("begofeGC",cnt,"objects of total size",sizes,flush=True)
+
+  stat = gc.collect()
+  
+  print("collected",stat,flush=True)
+  
+  cnt = 0
+  sizes = 0
+  for tracked_object in gc.get_objects():
+    cnt += 1
+    sizes += sys.getsizeof(tracked_object)
+  print("afterGC",cnt,"objects of total size",sizes,flush=True)
+  '''
+
+  '''
+  if time2 is not None:
+    print("Diff to prev",flush=True)
+    new_time = tracemalloc.take_snapshot()
+    stats = new_time.compare_to(time2, 'lineno')
+    for stat in stats[:10]:
+      print(stat)
+    stats = new_time.compare_to(time2, 'traceback')
+    top = stats[0]
+    print('\n'.join(top.traceback.format()))
+    time2 = new_time
+  else:
+    time2 = tracemalloc.take_snapshot()
+
+  print("\nDiff to base")
+  stats = time2.compare_to(time1, 'lineno')
+  for stat in stats[:10]:
+    print(stat)
+  stats = time2.compare_to(time1, 'traceback')
+  top = stats[0]
+  print('\n'.join(top.traceback.format()))
+  '''
+
+  # print(h.heap())
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -108,14 +285,16 @@ if __name__ == "__main__":
   # The log, the plot, and intermediate models are also saved in <folder_out>
   
   # global redirect of prints to the just upen "logfile"
-  sys.stdout = open("{}/run{}".format(sys.argv[2],IC.name_learning_regime_suffix()), 'w')
+  log = open("{}/run{}".format(sys.argv[2],IC.name_learning_regime_suffix()), 'w')
+  sys.stdout = log
+  sys.stderr = log
   
   start_time = time.time()
   
-  train_data_list = torch.load("{}/training_index.pt".format(sys.argv[1]))
-  print("Loaded train data:",len(train_data_list))
-  valid_data_list = torch.load("{}/validation_index.pt".format(sys.argv[1]))
-  print("Loaded valid data:",len(valid_data_list))
+  train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
+  print("Loaded train data:",len(train_data_idx))
+  valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
+  print("Loaded valid data:",len(valid_data_idx))
   
   if len(sys.argv) >= 4:
     master_parts = torch.load(sys.argv[3])
@@ -129,21 +308,17 @@ if __name__ == "__main__":
 
   if HP.TRR == HP.TestRiskRegimen_OVERFIT:
     # merge validation data back to training set (and ditch early stopping regularization)
-    train_data_list += valid_data_list
-    valid_data_list = []
-    print("Merged valid with train; final:",len(train_data_list))
+    train_data_idx += valid_data_idx
+    valid_data_idx = []
+    print("Merged valid with train; final:",len(train_data_idx))
 
   print()
   print(time.time() - start_time,"Initialization finished")
 
   epoch = 0
-
   # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
   model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
   torch.save(master_parts,model_name)
-
-  MAX_ACTIVE_TASKS = NUMPROCESSES
-  num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
@@ -152,12 +327,6 @@ if __name__ == "__main__":
     p = torch.multiprocessing.Process(target=worker, args=(q_in,q_out))
     p.start()
     my_processes.append(p)
-  
-  t = 0
-
-  # this is never completely faithful, since the model updates continually
-  train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1)) # the last recoreded stats on the i-th problem
-  validation_statistics = np.tile([1.0,0.0,0.0],(len(valid_data_list),1))
 
   if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
     optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
@@ -172,114 +341,61 @@ if __name__ == "__main__":
   valid_posrates = []
   valid_negrates = []
 
-  EPOCHS_BEFORE_VALIDATION = 1
+  # from guppy import hpy
+  # h = hpy()
+
+  '''
+  import tracemalloc
+  tracemalloc.start(10)  # save upto 5 stack frames
+  time1 = tracemalloc.take_snapshot()
+  time2 = None
+  '''
+
+  gc.set_debug(gc.DEBUG_LEAK | gc.DEBUG_STATS)
+
+  TRAIN_SAMPLES_PER_EPOCH = 800
+  VALID_SAMPLES_PER_EPOCH = 200
+
+  t = 0
 
   while True:
-    epoch += EPOCHS_BEFORE_VALIDATION
+    epoch += 1
    
     if epoch > 150:
       break
     
     times.append(epoch)
 
-    feed_sequence = []
-    for _ in range(EPOCHS_BEFORE_VALIDATION):
-      # SGDing - so traverse each time in new order
-      epoch_bit = list(range(len(train_data_list)))
-      random.shuffle(epoch_bit)
-      feed_sequence += epoch_bit
-  
-    # training on each problem in these EPOCHS_BEFORE_VALIDATION-many epochs
-    while feed_sequence or num_active_tasks > 0:
-      # we use parts_copies as a counter of idle children in the pool
-      while num_active_tasks < MAX_ACTIVE_TASKS and feed_sequence:
-        t += 1
-        num_active_tasks += 1
-        idx = feed_sequence.pop()
-        probname = train_data_list[idx]
-        
-        print(time.time() - start_time,"time_idx",t,"starting training job on problem",idx,probname)
-        
-        parts_file = "{}/parts_{}_{}.pt".format(SCRATCH,os.getpid(),t)
-        torch.save(master_parts,parts_file)
-        print(time.time() - start_time,"parts saved")
-        
-        message = (idx,probname,parts_file,True)
-        
-        q_in.put(message)
-        print(time.time() - start_time,"Put finished")
-        print()
+    feed_sequence = random.sample(train_data_idx,TRAIN_SAMPLES_PER_EPOCH)
+    feed_sequence = big_go_last(feed_sequence) # largest go last, because loop_it_out pops from the end
 
-      print(time.time() - start_time,"about to call get")
-      (idx,loss,posRate,negRate,parts_file,time_start,time_end) = q_out.get() # this may block
-      print(time.time() - start_time,"Get finished")
-      
-      num_active_tasks -= 1
-      his_parts = torch.load(parts_file)
-      os.remove(parts_file)
-      copy_grads_back_from_param(master_parts,his_parts)
-      
-      print(time.time() - start_time,"copy_grads_back_from_param finished")
-      optimizer.step()
-      print(time.time() - start_time,"ptimizer.step() finished")
+    (t,statistics) = loop_it_out(start_time,t,feed_sequence,True) # True for training
 
-      print(time.time() - start_time,"job finished at on problem",idx,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
-      print("Local:",loss,posRate,negRate)
-      print()
-      train_statistics[idx] = (loss,posRate,negRate)
-
-    print()
-    print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
+    print("Epoch",epoch,"traing finished at",time.time() - start_time)
     model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
     print("Saving model to:",model_name)
     torch.save(master_parts,model_name)
-
-    (loss,posRate,negRate) = np.mean(train_statistics,axis=0)
-    loss *= len(train_statistics) # we want the loss summed up; so that mergeing preserves comparable values
+    print()
+    
+    (loss,posRate,negRate) = np.mean(np.array(statistics),axis=0)
+    loss *= len(statistics) # we want the loss summed up; so that mergeing preserves comparable values
     print("Training stats:",loss,posRate,negRate,flush=True)
-    print("Validating...")
+    print()
     
     train_losses.append(loss)
     train_posrates.append(posRate)
     train_negrates.append(negRate)
 
-    parts_file = "{}/master_{}.pt".format(SCRATCH,os.getpid())
-    torch.save(master_parts,parts_file)
+    print("Validating...")
 
-    feed_sequence = list(range(len(valid_data_list)))
-    while feed_sequence or num_active_tasks > 0:
-      # we use parts_copies as a counter of idle children in the pool
-      while num_active_tasks < MAX_ACTIVE_TASKS and feed_sequence:
-        t += 1
-        
-        print(time.time() - start_time,"time_idx",t,"starting validation job on problem",idx)
-        
-        num_active_tasks += 1
-        idx = feed_sequence.pop()
-        probname = valid_data_list[idx]
-        
-        print(time.time() - start_time,"parts saved")
-        
-        message = (idx,probname,parts_file,False) # False stands for "training is off"
-        
-        q_in.put(message)
-        print(time.time() - start_time,"Put finished")
-        print()
+    feed_sequence = random.sample(valid_data_idx,VALID_SAMPLES_PER_EPOCH)
+    feed_sequence.sort() # largest go last, because loop_it_out pops from the end
 
-      (idx,loss,posRate,negRate,parts_file,time_start,time_end) = q_out.get() # this may block
-      
-      num_active_tasks -= 1
-      
-      print(time.time() - start_time,"job finished at on problem",idx,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
-      print("Local:",loss,posRate,negRate)
-      print()
-      validation_statistics[idx] = (loss,posRate,negRate)
+    (t,statistics) = loop_it_out(start_time,t,feed_sequence,False) # False for evaluating
 
-    os.remove(parts_file)
-
-    print("(Multi)-epoch",epoch,"validation finished at",time.time() - start_time)
-    (loss,posRate,negRate) = np.mean(validation_statistics,axis=0)
-    loss *= len(validation_statistics)# we want the loss summed up; so that mergeing preserves comparable values
+    print("Epoch",epoch,"validation finished at",time.time() - start_time)
+    (loss,posRate,negRate) = np.mean(np.array(statistics),axis=0)
+    loss *= len(statistics) # we want the loss summed up; so that mergeing preserves comparable values
     print("Validation stats:",loss,posRate,negRate,flush=True)
 
     valid_losses.append(loss)
