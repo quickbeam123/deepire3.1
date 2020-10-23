@@ -430,7 +430,7 @@ class LearningModel(torch.nn.Module):
 
   # Construct the whole graph and return its loss
   # TODO: can we keep the graph after an update?
-  def forward(self) -> Tensor:
+  def forward(self):
     store : Dict[int, Tensor] = {} # each id stores its embedding
     
     self.posOK = 0
@@ -756,10 +756,11 @@ def compress_prob_data(some_probs):
     # reset for evey problem in the list
     old2new = {} # maps old_id to new_id (this is the not-necessarily-injective map)
   
+    just_file = probname.split("/")[-1]
     if out_probname:
-      out_probname += "+"+probname
+      out_probname += "+"+just_file
     else:
-      out_probname = probname
+      out_probname = just_file
 
     for old_id, features in init:
       abskey = features
