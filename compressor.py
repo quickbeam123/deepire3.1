@@ -39,7 +39,7 @@ def compress_to_treshold(prob_data_list,treshold):
     sum += val*cnt
     tot += cnt
     # print(val,cnt)
-    if val > 10000:
+    if val > treshold:
       big += cnt
     else:
       small += cnt
@@ -55,10 +55,10 @@ def compress_to_treshold(prob_data_list,treshold):
   while size_and_prob:
     size, my_rest = size_and_prob.pop()
 
-    print("Popped guy of size",size)
+    # print("Popped guy of size",size)
 
     while size < treshold and size_and_prob:
-      print("Looking for a friend")
+      # print("Looking for a friend")
       likes_sizes = int((treshold-size)*1.2)
       idx_upper = bisect.bisect_right(size_and_prob,(likes_sizes, my_rest))
 
@@ -67,20 +67,20 @@ def compress_to_treshold(prob_data_list,treshold):
 
       idx = random.randrange(idx_upper)
     
-      print("Idxupper",idx_upper,"idx",idx)
+      # print("Idxupper",idx_upper,"idx",idx)
 
       friend_size, friend_rest = size_and_prob[idx]
       del size_and_prob[idx]
 
-      print("friend_size",friend_size)
+      # print("friend_size",friend_size)
 
       my_rest = IC.compress_prob_data([my_rest,friend_rest])
       probname, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = my_rest
       size = len(init)+len(deriv)
     
-      print("aftermerge",size)
+      # print("aftermerge",size)
 
-    print("Storing a guy of size",size)
+    # print("Storing a guy of size",size)
     compressed.append(my_rest)
 
   print()
@@ -228,8 +228,8 @@ if __name__ == "__main__":
 
     print("Done")
 
-  if False:
-    prob_data_list = compress_to_treshold(prob_data_list,treshold = 10000)
+  if True:
+    prob_data_list = compress_to_treshold(prob_data_list,treshold = 5000)
 
   print("Saving pieces")
   dir = "{}/pieces".format(sys.argv[1])
@@ -242,7 +242,7 @@ if __name__ == "__main__":
   for i,(probname,rest) in enumerate(prob_data_list):
     piece_name = "piece{}.pt".format(i)
     torch.save(rest, "{}/{}".format(dir,piece_name))
-    prob_data_list[i] = piece_name
+    prob_data_list[i] = (len(rest[0])+len(rest[1]),piece_name)
   print("Done")
 
   random.shuffle(prob_data_list)
@@ -268,7 +268,3 @@ if __name__ == "__main__":
   filename = "{}/validation_data.pt".format(sys.argv[1])
   print("Saving validation part to",filename)
   torch.save(prob_data_list[spl:], filename)
-
-
-
-
