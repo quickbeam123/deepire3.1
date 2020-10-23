@@ -406,21 +406,21 @@ class LearningModel(torch.nn.Module):
     pos = self.pos_vals[id]
     neg = self.neg_vals[id]
     
-    self.posTot += pos
-    self.negTot += neg
-    
     if val[0].item() >= 0.0:
       self.posOK += pos
     else:
       self.negOK += neg
   
     contrib = self.criterion(val,torch.tensor([pos/(pos+neg)]))
-  
+    
     '''
     print("contribute",id,pos,neg)
     print("logit",val[0].item())
     print("(val {})".format(1.0 if val[0].item() >= 0.0 else 0.0))
     print("gold",pos/(pos+neg))
+    
+    print("self.posOK",self.posOK)
+    print("self.negOK",self.negOK)
     
     print("loss",(pos+neg),"*",contrib.item())
     print(flush=True)
@@ -433,10 +433,8 @@ class LearningModel(torch.nn.Module):
   def forward(self):
     store : Dict[int, Tensor] = {} # each id stores its embedding
     
-    self.posOK = 0
-    self.posTot = 0
-    self.negOK = 0
-    self.negTot = 0
+    self.posOK = 0.0
+    self.negOK = 0.0
     
     loss = torch.zeros(1)
     
@@ -468,7 +466,7 @@ class LearningModel(torch.nn.Module):
       if id in self.pos_vals or id in self.neg_vals:
         loss += self.contribute(id,embed)
 
-    return (loss,self.posOK/self.posTot if self.posTot else 1.0,self.negOK/self.negTot if self.negTot else 1.0)
+    return (loss,self.posOK,self.negOK)
 
 def get_ancestors(seed,pars,**kwargs):
   ancestors = kwargs.get("known_ancestors",set())

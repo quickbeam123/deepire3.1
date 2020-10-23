@@ -59,12 +59,12 @@ def eval_and_or_learn_on_one(myparts,data,training):
   else:
     model.eval()
   
-  (loss,posRate,negRate) = model()
+  (loss_sum,posOK_sum,negOK_sum) = model()
   
   # print("Model evaluated")
   
   if training:
-    loss.backward()
+    loss_sum.backward()
     # put grad into actual tensor to be returned below (gradients don't go through the Queue)
     for param in myparts.parameters():
       grad = param.grad
@@ -77,7 +77,7 @@ def eval_and_or_learn_on_one(myparts,data,training):
 
     # print("Training finished")
 
-  return (loss[0].item(),posRate,negRate,myparts)
+  return (loss_sum[0].item(),posOK_sum,negOK_sum,myparts)
 
 global common_data
 common_data = None
@@ -91,8 +91,8 @@ def worker(q_in, q_out):
       (idx,myparts,training) = q_in.get()
       probname, data = common_data[training][idx]
     
-    (loss,posRate,negRate,myparts) = eval_and_or_learn_on_one(myparts,data,training)
-    q_out.put((idx,loss,posRate,negRate,myparts))
+    (loss_sum,posOK_sum,negOK_sum,myparts) = eval_and_or_learn_on_one(myparts,data,training)
+    q_out.put((idx,loss_sum,posOK_sum,negOK_sum,myparts))
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -163,10 +163,6 @@ if __name__ == "__main__":
   
   t = 0
 
-  # this is never completely faithful, since the model updates continually
-  train_statistics = np.tile([1.0,0.0,0.0],(len(train_data_list),1)) # the last recoreded stats on the i-th problem
-  validation_statistics = np.tile([1.0,0.0,0.0],(len(valid_data_list),1))
-
   if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
     optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
   elif HP.OPTIMIZER == HP.Optimizer_ADAM:
@@ -198,7 +194,10 @@ if __name__ == "__main__":
       epoch_bit = list(range(len(train_data_list)))
       random.shuffle(epoch_bit)
       feed_sequence += epoch_bit
-  
+
+    stats = np.zeros(3) # loss_sum, posOK_sum, negOK_sum
+    weights = np.zeros(2) # pos_weight, neg_weight
+
     # training on each problem in these EPOCHS_BEFORE_VALIDATION-many epochs
     while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
       # we use parts_copies as a counter of idle children in the pool
@@ -217,30 +216,41 @@ if __name__ == "__main__":
           message = (idx,parts_copy,True) # True stands for "training is on"
         q_in.put(message)
 
-      (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
+      (idx,loss_sum,posOK_sum,negOK_sum,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
 
       copy_grads_back_from_param(master_parts,his_parts)
       optimizer.step()
+    
+      (probname,data) = train_data_list[idx]
+      pos_weight,neg_weight = data[-2],data[-1]
 
-      print("Job finished at on problem",idx,flush=True)
-      print("Local:",loss,posRate,negRate)
-      train_statistics[idx] = (loss,posRate,negRate)
-
+      print("Job finished at on problem",idx,"of weight",pos_weight,neg_weight,flush=True)
+      print("Debug",loss_sum,posOK_sum,negOK_sum)
+      print("Local:",loss_sum/(pos_weight+neg_weight),posOK_sum/pos_weight,negOK_sum/neg_weight)
+      stats += (loss_sum,posOK_sum,negOK_sum)
+      weights += (pos_weight,neg_weight)
+      
     print()
     print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
     model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
     print("Saving model to:",model_name)
     torch.save(master_parts,model_name)
 
-    (loss,posRate,negRate) = np.mean(train_statistics,axis=0)
-    loss *= len(train_statistics) # we want the loss summed up; so that mergeing preserves comparable values
+    loss = stats[0]/(weights[0]+weights[1])
+    posRate = stats[1]/weights[0]
+    negRate = stats[2]/weights[1]
+
     print("Training stats:",loss,posRate,negRate,flush=True)
-    print("Validating...")
-    
+
     train_losses.append(loss)
     train_posrates.append(posRate)
     train_negrates.append(negRate)
+
+    print("Validating...")
+
+    stats = np.zeros(3) # loss_sum, posOK_sum, negOK_sum
+    weights = np.zeros(2) # pos_weight, neg_weight
 
     feed_sequence = list(range(len(valid_data_list)))
     while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
@@ -261,16 +271,24 @@ if __name__ == "__main__":
         
         q_in.put(message)
 
-      (idx,loss,posRate,negRate,his_parts) = q_out.get() # this may block
+      (idx,loss_sum,posOK_sum,negOK_sum,his_parts) = q_out.get() # this may block
       parts_copies.append(his_parts) # increase the ``counter'' again
 
-      print("Job finished at on problem",idx,flush=True)
-      print("Local:",loss,posRate,negRate)
-      validation_statistics[idx] = (loss,posRate,negRate)
+      (probname,data) = valid_data_list[idx]
+      pos_weight,neg_weight = data[-2],data[-1]
+
+      print("Job finished at on problem",idx,"of weight",pos_weight,neg_weight,flush=True)
+      print("Debug",loss_sum,posOK_sum,negOK_sum)
+      print("Local:",loss_sum/(pos_weight+neg_weight),posOK_sum/pos_weight,negOK_sum/neg_weight)
+      stats += (loss_sum,posOK_sum,negOK_sum)
+      weights += (pos_weight,neg_weight)
 
     print("(Multi)-epoch",epoch,"validation finished at",time.time() - start_time)
-    (loss,posRate,negRate) = np.mean(validation_statistics,axis=0)
-    loss *= len(validation_statistics)# we want the loss summed up; so that mergeing preserves comparable values
+
+    loss = stats[0]/(weights[0]+weights[1])
+    posRate = stats[1]/weights[0]
+    negRate = stats[2]/weights[1]
+
     print("Validation stats:",loss,posRate,negRate,flush=True)
 
     valid_losses.append(loss)
