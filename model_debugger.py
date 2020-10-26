@@ -20,6 +20,11 @@ from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
 
+# release the memory just claimed - an experiment
+import ctypes
+import ctypes.util
+libc = ctypes.CDLL(ctypes.util.find_library('c'))
+
 def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit):
   howmuch = 1.0/len(selec)
   
@@ -85,6 +90,9 @@ def eval_one(task):
 
     posOK,posTot,negOK,negTot,min_pos_logit = contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
+  del model
+  libc.malloc_trim(ctypes.c_int(0))
+
   return (probname,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
 if __name__ == "__main__":
@@ -100,18 +108,19 @@ if __name__ == "__main__":
   # To be called as in: ./model_debugger.py raw_log_data_*.pt torch_script_model.pt
 
   prob_data_list = torch.load(sys.argv[1])
-  '''
+  
   results = []
   for task in prob_data_list:
     res = eval_one(task)
     print("Done",task[0])
     results.append(res)
   '''
-  pool = Pool(processes=15)
+  pool = Pool(processes=25)
   results = pool.map(eval_one, prob_data_list, chunksize = 5)
   pool.close()
   pool.join()
   del pool
+  '''
 
   cnt = 0
   posrate_sum = 0.0

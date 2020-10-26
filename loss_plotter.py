@@ -23,7 +23,7 @@ if __name__ == "__main__":
   reading = False
   with open(sys.argv[1],"r") as f:
     for line in f:
-      if line.startswith("(Multi)-epoch") and "learning finished at" in line:
+      if line.startswith("Epoch") and "training finished at" in line:
         time = int(line.split()[1])
         times.append(time)
         
