@@ -378,7 +378,7 @@ class LearningModel(torch.nn.Module):
     self.pos_vals = pos_vals
     self.neg_vals = neg_vals
   
-    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos
+    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0
   
     if save_logits:
       self.logits = {}
@@ -514,6 +514,9 @@ def load_one(filename,max_size = None):
     if depth > max_depth:
       max_depth = depth
 
+  just_waiting_for_time = False
+  time_elapsed = None
+
   with open(filename,'r') as f:
     for line in f:
       if max_size and len(init)+len(deriv) > max_size:
@@ -521,7 +524,13 @@ def load_one(filename,max_size = None):
       
       # print(line)
       if line.startswith("% Refutation found."):
-        break
+        just_waiting_for_time = True
+      
+      if line.startswith("% Time elapsed:"):
+        time_elapsed = float(line.split()[-2])
+      
+      if just_waiting_for_time:
+        continue
       if line.startswith("% # SZS output start Saturation."):
         print("Skipping. Is SAT.")
         return None
@@ -602,8 +611,8 @@ def load_one(filename,max_size = None):
   # TODO: consider learning only from hard problems!
   
   # E.g., solveable by a stupid strategy (age-only), get filtered out
-  if not selec or not good or len(selec) == len(good):
-    print("Skipping, degenerate.")
+  if not selec:
+    print("Skipping, degenerate!")
     return None
 
   # Don't be afraid of depth!
@@ -613,17 +622,17 @@ def load_one(filename,max_size = None):
     return None
   '''
 
-  print("init: {}, deriv: {}, select: {}, good: {}, axioms: {}".format(len(init),len(deriv),len(selec),len(good),len(axioms)))
+  print("init: {}, deriv: {}, select: {}, good: {}, axioms: {}, time: {}".format(len(init),len(deriv),len(selec),len(good),len(axioms),time_elapsed))
 
-  return (init,deriv,pars,selec,good,axioms)
+  return (init,deriv,pars,selec,good,axioms),time_elapsed
 
 def prepare_signature(prob_data_list):
   thax_sign = set()
   sine_sign = set()
   deriv_arits = {}
-  axiom_hist = defaultdict(int)
+  axiom_hist = defaultdict(float)
 
-  for probname, (init,deriv,pars,selec,good,axioms) in prob_data_list:
+  for (probname,probweight), (init,deriv,pars,selec,good,axioms) in prob_data_list:
     for id, (thax,sine) in init:
       thax_sign.add(thax)
       sine_sign.add(sine)
@@ -652,7 +661,7 @@ def prepare_signature(prob_data_list):
       deriv_arits[2] = 2
   
     for id,ax in axioms.items():
-      axiom_hist[ax] += 1
+      axiom_hist[ax] += probweight
 
   return (thax_sign,sine_sign,deriv_arits,axiom_hist)
 
@@ -666,7 +675,7 @@ def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff
   thax_to_str = {}
   good_ax_cnt = 0
   for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
-    # print(ax,num)
+    print(ax,num)
     
     if num >= axcnt_cutoff: # change this constant to get something reasonable
       good_ax_cnt += 1
@@ -674,7 +683,7 @@ def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff
       thax_to_str[good_ax_cnt] = ax
       # print(ax,"is",good_ax_cnt)
 
-  for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
+  for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
     new_init = []
     for id, (thax,sine) in init:
       if thax == 0: # don't name the conjecture
@@ -683,7 +692,7 @@ def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff
       new_init.append((id,(thax,sine)))
       thax_sign.add(thax)
 
-    new_prob_data_list.append((probname,(new_init,deriv,pars,selec,good,axioms)))
+    new_prob_data_list.append((metainfo,(new_init,deriv,pars,selec,good,axioms)))
 
   return thax_sign,new_prob_data_list,thax_to_str
 
@@ -739,6 +748,7 @@ def compress_prob_data(some_probs):
 
   id_cnt = 0
   out_probname = ""
+  out_probweight = 0.0
   
   abs2new = {} # maps (thax/rule,par_new_ids) to new_id (the structurally hashed one)
   
@@ -750,7 +760,7 @@ def compress_prob_data(some_probs):
   out_tot_pos = 0.0
   out_tot_neg = 0.0
 
-  for probname, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in some_probs:
+  for (probname,probweight), (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in some_probs:
     # reset for evey problem in the list
     old2new = {} # maps old_id to new_id (this is the not-necessarily-injective map)
   
@@ -759,6 +769,8 @@ def compress_prob_data(some_probs):
       out_probname += "+"+just_file
     else:
       out_probname = just_file
+    
+    out_probweight += probweight
 
     for old_id, features in init:
       abskey = features
@@ -801,7 +813,7 @@ def compress_prob_data(some_probs):
     out_tot_neg += tot_neg
 
   print("Compressed to",len(out_init),len(out_deriv),len(out_pars),len(pos_vals),len(neg_vals),out_tot_pos,out_tot_neg)
-  return out_probname, (out_init,out_deriv,out_pars,out_pos_vals,out_neg_vals,out_tot_pos,out_tot_neg)
+  return (out_probname,out_probweight), (out_init,out_deriv,out_pars,out_pos_vals,out_neg_vals,out_tot_pos,out_tot_neg)
 
 def big_data_prob(prob_data_list):
   # compute the big graph union - currently unused - was too big to use at once

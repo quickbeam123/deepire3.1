@@ -18,15 +18,21 @@ import sys,random,itertools
 
 from multiprocessing import Pool
 
+def logname_to_probname(logname):
+  assert("small_np_" == logname[:9])
+  assert(".log" == logname[-4:])
+  return "small_np/"+logname[9:-4]
+
 def load_one(task):
   i,probname = task
   
   print(i)
   start_time = time.time()
-  probdata = IC.load_one(probname) # ,max_size=15000)
+  result = IC.load_one(probname) # ,max_size=15000)
   print("Took",time.time()-start_time)
-  if probdata:
-    return probname.split("/")[-1],probdata
+  if result:
+    probdata,time_elapsed = result
+    return (probname.split("/")[-1],time_elapsed),probdata
   else:
     None
 
@@ -46,24 +52,26 @@ if __name__ == "__main__":
   #
   # data_sign.pt and raw_log_data_*.pt are created in <folder>
 
+  prob_easiness = {}
+  if len(sys.argv) > 3:
+    with open(sys.argv[3],"r") as f:
+      for line in f:
+        spl = line.split()
+        prob_easiness[spl[0]] = int(spl[1])
+
   prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
 
   tasks = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
-      """
-      if i >= 1000:
-        break
-      """
       probname = line[:-1]
       tasks.append((i,probname))
-  pool = Pool(processes=50)
+  pool = Pool(processes=40)
   results = pool.map(load_one, tasks, chunksize = 100)
   pool.close()
   pool.join()
   del pool
   prob_data_list = list(filter(None, results))
-
   '''
   prob_data_list = []
   with open(sys.argv[2],"r") as f:
@@ -72,14 +80,35 @@ if __name__ == "__main__":
       result = load_one((i,probname))
       if result is not None:
         prob_data_list.append(result)
-      
-      """
-      if len(prob_data_list) >= 1000:
-        break
-      """
   '''
-
   print(len(prob_data_list),"problems loaded!")
+
+  # assign weights to problems, especially if prob_easiness file has been provided
+  times = []
+  sizes = []
+  easies = []
+  for i,((probname,time_elapsed),probdata) in enumerate(prob_data_list):
+    probname = logname_to_probname(probname)
+    easy = prob_easiness[probname] if probname in prob_easiness else 1
+    
+    probweight = 1.0/easy
+    
+    prob_data_list[i] = (probname,probweight),probdata
+    
+    # uncomment for plotting below:
+    '''
+    times.append(time_elapsed)
+    sizes.append(len(probdata[0])+len(probdata[1])) # len(init)+len(deriv)
+    easies.append(easy)
+    '''
+
+  # plot the time_elapsed vs size distribution
+  '''
+  import matplotlib.pyplot as plt
+  sc = plt.scatter(times,sizes,c=easies,marker="+")
+  plt.colorbar(sc)
+  plt.savefig("times_sizes.png",dpi=250)
+  '''
 
   thax_sign,sine_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
@@ -91,7 +120,7 @@ if __name__ == "__main__":
   print("thax_sign",thax_sign)
   print("sine_sign",sine_sign)
   print("deriv_arits",deriv_arits)
-  #print("axiom_hist",axiom_hist)
+  # print("axiom_hist",axiom_hist)
   print("thax_to_str",thax_to_str)
 
   filename = "{}/data_sign.pt".format(sys.argv[1])
@@ -103,6 +132,8 @@ if __name__ == "__main__":
   print("Saving raw data to",filename)
   torch.save(prob_data_list, filename)
   print()
+
+  # print(prob_data_list[0])
 
   print("Done")
 
