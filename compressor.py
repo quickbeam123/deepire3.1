@@ -23,10 +23,10 @@ def compress_to_treshold(prob_data_list,treshold):
   
   size_and_prob = []
   
-  for i,(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+  for i,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     size = len(init)+len(deriv)
     
-    size_and_prob.append((size,(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
+    size_and_prob.append((size,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
     
     size_hist[len(init)+len(deriv)] += 1
 
@@ -75,12 +75,12 @@ def compress_to_treshold(prob_data_list,treshold):
       # print("friend_size",friend_size)
 
       my_rest = IC.compress_prob_data([my_rest,friend_rest])
-      probname, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = my_rest
+      metainfo, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = my_rest
       size = len(init)+len(deriv)
     
       # print("aftermerge",size)
 
-    # print("Storing a guy of size",size)
+    print("Storing a guy of size",size,"weight",metainfo[-1])
     compressed.append(my_rest)
 
   print()
@@ -109,17 +109,17 @@ if __name__ == "__main__":
   print("Loaded raw prob_data_list of len:",len(prob_data_list))
 
   print("Dropping axiom information, not needed anymore")
-  prob_data_list = [(probname,(init,deriv,pars,selec,good)) for (probname,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
+  prob_data_list = [(metainfo,(init,deriv,pars,selec,good)) for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
   print("Done")
 
   print("Smoothed representation")
-  for i, (probname,(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+  for i, ((probname,probweight),(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
     pos_vals = defaultdict(float)
     neg_vals = defaultdict(float)
     tot_pos = 0.0
     tot_neg = 0.0
 
-    one_clause_weigth = 1.0/len(selec)
+    one_clause_weigth = probweight/len(selec)
 
     for id in selec:
       if id in good:
@@ -129,40 +129,23 @@ if __name__ == "__main__":
         neg_vals[id] = one_clause_weigth
         tot_neg += one_clause_weigth
 
-    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
-    
-    '''
-    if "t16_finsub_1" in probname:
-      print(probname)
-      print(selec)
-      print(good)
-      print(pos_vals)
-      print(neg_vals)
-    '''
-    
+    prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+
   print("Done")
 
   print("Compressing")
-  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
-    print(probname,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
-    prob_data_list[i] = IC.compress_prob_data([(probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+  for i, (metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    print(metainfo,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
+    prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
   print("Done")
 
   print("Making smooth compression discreet again")
-  for i, (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+  for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     print()
   
-    print(probname)
+    print(probname,probweight)
     print(tot_pos,tot_neg)
-  
-    '''
-    if "t16_finsub_1" in probname:
-      print(pos_vals)
-      print(neg_vals)
-      print(tot_pos)
-      print(tot_neg)
-    '''
-  
+    
     tot_pos = 0.0
     tot_neg = 0.0
             
@@ -190,8 +173,8 @@ if __name__ == "__main__":
         pos_vals[id] = 1.0 # pos counts as one too
         tot_pos += 1.0
 
-    # new stuff -- normalize so that each abstracted clause in a problem has so much "voice" that tha whole problem has a sum of 1.0
-    factor = 1.0/(tot_pos+tot_neg)
+    # new stuff -- normalize so that each abstracted clause in a problem has so much "voice" that tha whole problem has a sum of probweight
+    factor = probweight/(tot_pos+tot_neg)
     for id,val in pos_vals.items():
       pos_vals[id] *= factor
     for id,val in neg_vals.items():
@@ -199,21 +182,13 @@ if __name__ == "__main__":
     tot_pos *= factor
     tot_neg *= factor
 
-    '''
-    if "t16_finsub_1" in probname:
-      print(pos_vals)
-      print(neg_vals)
-      print(tot_pos)
-      print(tot_neg)
-    '''
-
     print(tot_pos,tot_neg)
 
-    prob_data_list[i] = (probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+    prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
 
   if False: # Big compression now:
     print("Grand compression")
-    (joint_probname,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) = IC.compress_prob_data(prob_data_list)
+    (joint_probname,joint_probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = IC.compress_prob_data(prob_data_list)
 
     '''
     for id in sorted(set(pos_vals) | set(neg_vals)):
@@ -229,42 +204,43 @@ if __name__ == "__main__":
     print("Done")
 
   if True:
-    prob_data_list = compress_to_treshold(prob_data_list,treshold = 5000)
+    prob_data_list = compress_to_treshold(prob_data_list,treshold = 4000)
 
-  print("Saving pieces")
-  dir = "{}/pieces".format(sys.argv[1])
-  try:
-    os.mkdir(dir)
-  except OSError as exc:
-    if exc.errno != errno.EEXIST:
-        raise
-    pass
-  for i,(probname,rest) in enumerate(prob_data_list):
-    piece_name = "piece{}.pt".format(i)
-    torch.save(rest, "{}/{}".format(dir,piece_name))
-    prob_data_list[i] = (len(rest[0])+len(rest[1]),piece_name)
-  print("Done")
+  SAVE_PIECES = True
+
+  if SAVE_PIECES:
+    print("Saving pieces")
+    dir = "{}/pieces".format(sys.argv[1])
+    try:
+      os.mkdir(dir)
+    except OSError as exc:
+      if exc.errno != errno.EEXIST:
+          raise
+      pass
+    for i,(metainfo,rest) in enumerate(prob_data_list):
+      piece_name = "piece{}.pt".format(i)
+      torch.save(rest, "{}/{}".format(dir,piece_name))
+      prob_data_list[i] = (len(rest[0])+len(rest[1]),piece_name)
+    print("Done")
 
   random.shuffle(prob_data_list)
   spl = math.ceil(len(prob_data_list) * 0.8)
   print("shuffled and split at idx",spl,"out of",len(prob_data_list))
   print()
 
-  # save just names:
-  filename = "{}/training_index.pt".format(sys.argv[1])
-  print("Saving training part to",filename)
-  torch.save(prob_data_list[:spl], filename)
-  filename = "{}/validation_index.pt".format(sys.argv[1])
-  print("Saving validation part to",filename)
-  torch.save(prob_data_list[spl:], filename)
+  if SAVE_PIECES:
+    # save just names:
+    filename = "{}/training_index.pt".format(sys.argv[1])
+    print("Saving training part to",filename)
+    torch.save(prob_data_list[:spl], filename)
+    filename = "{}/validation_index.pt".format(sys.argv[1])
+    print("Saving validation part to",filename)
+    torch.save(prob_data_list[spl:], filename)
 
-  exit(0)
-
-  # the old way below:
-
-  filename = "{}/training_data.pt".format(sys.argv[1])
-  print("Saving training part to",filename)
-  torch.save(prob_data_list[:spl], filename)
-  filename = "{}/validation_data.pt".format(sys.argv[1])
-  print("Saving validation part to",filename)
-  torch.save(prob_data_list[spl:], filename)
+  else:
+    filename = "{}/training_data.pt".format(sys.argv[1])
+    print("Saving training part to",filename)
+    torch.save(prob_data_list[:spl], filename)
+    filename = "{}/validation_data.pt".format(sys.argv[1])
+    print("Saving validation part to",filename)
+    torch.save(prob_data_list[spl:], filename)
