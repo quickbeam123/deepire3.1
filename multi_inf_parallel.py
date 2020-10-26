@@ -23,9 +23,11 @@ import numpy as np
 
 import os
 
-NUMPROCESSES = 5
+NUMPROCESSES = 25
 
-DATA_THROUGH_QUEUE = True
+MAX_ACTIVE_TASKS = NUMPROCESSES
+
+DATA_THROUGH_QUEUE = False
 
 def copy_parts_and_zero_grad_in_copy(parts,parts_copies):
   for part,part_copy in zip(parts,parts_copies):
@@ -77,7 +79,7 @@ def eval_and_or_learn_on_one(myparts,data,training):
 
     # print("Training finished")
 
-  return (loss_sum[0].item(),posOK_sum,negOK_sum,myparts)
+  return (loss_sum[0].item(),posOK_sum,negOK_sum,tot_pos,tot_neg,myparts)
 
 global common_data
 common_data = None
@@ -85,14 +87,78 @@ common_data = None
 def worker(q_in, q_out):
   global common_data
   while True:
+    start_time = time.time()
     if DATA_THROUGH_QUEUE:
       (idx,data,myparts,training) = q_in.get()
     else:
       (idx,myparts,training) = q_in.get()
-      probname, data = common_data[training][idx]
+      metainfo,data = common_data[training][idx]
     
-    (loss_sum,posOK_sum,negOK_sum,myparts) = eval_and_or_learn_on_one(myparts,data,training)
-    q_out.put((idx,loss_sum,posOK_sum,negOK_sum,myparts))
+    (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,myparts) = eval_and_or_learn_on_one(myparts,data,training)
+    q_out.put((idx,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,myparts,start_time,time.time()))
+
+def get_size_from_idx(idx,actual_data_list):
+  metainfo,data = actual_data_list[idx]
+  return len(data[0])+len(data[1])
+
+def big_go_last(feed_idx_sequence,actual_data_list):
+  WHAT_IS_BIG = 10000
+
+  big = [idx for idx in feed_idx_sequence if get_size_from_idx(idx,actual_data_list) > WHAT_IS_BIG]
+  small = [idx for idx in feed_idx_sequence if get_size_from_idx(idx,actual_data_list) <= WHAT_IS_BIG]
+
+  print("big_go_last",len(small),len(big))
+
+  # big.sort() # start with the really big ones so that we are finished with them before the next iteration would be about to start
+  return small #+big
+
+def loop_it_out(start_time,t,parts_copies,feed_sequence,actual_data_list,training):
+  stats = np.zeros(3) # loss_sum, posOK_sum, negOK_sum
+  weights = np.zeros(2) # pos_weight, neg_weight
+
+  # training on each problem in these EPOCHS_BEFORE_VALIDATION-many epochs
+  while feed_sequence or len(parts_copies) < MAX_ACTIVE_TASKS:
+    # we use parts_copies as a counter of idle children in the pool
+    while parts_copies and feed_sequence:
+      parts_copy = parts_copies.pop()
+      idx = feed_sequence.pop()
+      
+      ((probname,probweight),data) = actual_data_list[idx]
+      copy_parts_and_zero_grad_in_copy(master_parts,parts_copy)
+      t += 1
+      print(time.time() - start_time,"time_idx",t,"starting {} job on problem".format("training" if training else "validation"),idx,"of size",len(data[0])+len(data[1]),"and weight",probweight)
+      
+      if DATA_THROUGH_QUEUE:
+        message = (idx,data,parts_copy,True) # True stands for "training is on"
+      else:
+        message = (idx,parts_copy,True) # True stands for "training is on"
+      q_in.put(message)
+      print(time.time() - start_time,"put finished",flush=True)
+      print()
+
+    print(time.time() - start_time,"about to call get")
+    (idx,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,his_parts,time_start,time_end) = q_out.get() # this may block
+    print(time.time() - start_time,"get finished")
+    
+    parts_copies.append(his_parts) # increase the ``counter'' again
+
+    if training:
+      copy_grads_back_from_param(master_parts,his_parts)
+      print(time.time() - start_time,"copy_grads_back_from_param finished")
+      optimizer.step()
+      print(time.time() - start_time,"optimizer.step() finished")
+    
+    ((probname,probweight),data) = train_data_list[idx]
+    pos_weight,neg_weight = data[-2],data[-1]
+
+    print(time.time() - start_time,"job finished at on problem",idx,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
+    print("Of weight",tot_pos,tot_neg,tot_pos+tot_neg)
+    print("Debug",loss_sum,posOK_sum,negOK_sum)
+    print("Local:",loss_sum/(tot_pos+tot_neg),posOK_sum/tot_pos if tot_pos > 0.0 else 1.0,negOK_sum/tot_neg if tot_neg > 0.0 else 1.0)
+    print()
+
+    stats += (loss_sum,posOK_sum,negOK_sum)
+    weights += (pos_weight,neg_weight)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -116,7 +182,11 @@ if __name__ == "__main__":
   # The log, the plot, and intermediate models are also saved in <folder_out>
   
   # global redirect of prints to the just upen "logfile"
-  sys.stdout = open("{}/run{}".format(sys.argv[2],IC.name_learning_regime_suffix()), 'w')
+  # log = open("{}/run{}".format(sys.argv[2],IC.name_learning_regime_suffix()), 'w')
+  # sys.stdout = log
+  # sys.stderr = log
+  
+  start_time = time.time()
   
   train_data_list = torch.load("{}/training_data.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_list))
@@ -139,6 +209,9 @@ if __name__ == "__main__":
     valid_data_list = []
     print("Merged valid with train; final:",len(train_data_list))
 
+  print()
+  print(time.time() - start_time,"Initialization finished")
+
   common_data = [valid_data_list,train_data_list]
 
   epoch = 0
@@ -147,10 +220,8 @@ if __name__ == "__main__":
   model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
   torch.save(master_parts,model_name)
 
-  NUM_ACTIVE_TASKS = NUMPROCESSES
-
-  parts_copies = [] # have as many copies as NUM_ACTIVE_TASKS; they are somehow shared among the processes via Queue, so only one process should touch one at a time
-  for i in range(NUM_ACTIVE_TASKS):
+  parts_copies = [] # have as many copies as MAX_ACTIVE_TASKS; they are somehow shared among the processes via Queue, so only one process should touch one at a time
+  for i in range(MAX_ACTIVE_TASKS):
     parts_copies.append(torch.load(model_name)) # currently, don't know how to reliably deep-copy in memory (with pickling, all seems fine)
 
   q_in = torch.multiprocessing.Queue()
@@ -160,8 +231,6 @@ if __name__ == "__main__":
     p = torch.multiprocessing.Process(target=worker, args=(q_in,q_out))
     p.start()
     my_processes.append(p)
-  
-  t = 0
 
   if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
     optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
@@ -175,72 +244,36 @@ if __name__ == "__main__":
   valid_losses = []
   valid_posrates = []
   valid_negrates = []
-  
-  start_time = time.time()
 
-  EPOCHS_BEFORE_VALIDATION = 1
+  TRAIN_SAMPLES_PER_EPOCH = 1000
+  VALID_SAMPLES_PER_EPOCH = 200
+
+  t = 0
 
   while True:
-    epoch += EPOCHS_BEFORE_VALIDATION
+    epoch += 1
    
-    if epoch > 100:
+    if epoch > 150:
       break
     
     times.append(epoch)
 
-    feed_sequence = []
-    for _ in range(EPOCHS_BEFORE_VALIDATION):
-      # SGDing - so traverse each time in new order
-      epoch_bit = list(range(len(train_data_list)))
-      random.shuffle(epoch_bit)
-      feed_sequence += epoch_bit
+    train_feed_sequence = random.sample(range(len(train_data_list)),TRAIN_SAMPLES_PER_EPOCH) if len(train_data_list) > TRAIN_SAMPLES_PER_EPOCH else range(len(train_data_list)
+    train_feed_sequence = big_go_last(train_feed_sequence,train_data_list) # largest go last, because loop_it_out pops from the end
 
-    stats = np.zeros(3) # loss_sum, posOK_sum, negOK_sum
-    weights = np.zeros(2) # pos_weight, neg_weight
+    (t,stats,weights) = loop_it_out(start_time,t,parts_copies,train_feed_sequence,train_data_list,True) # True for training
 
-    # training on each problem in these EPOCHS_BEFORE_VALIDATION-many epochs
-    while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
-      # we use parts_copies as a counter of idle children in the pool
-      while parts_copies and feed_sequence:
-        parts_copy = parts_copies.pop()
-        idx = feed_sequence.pop()
-        
-        (probname,data) = train_data_list[idx]
-        copy_parts_and_zero_grad_in_copy(master_parts,parts_copy)
-        t += 1
-        print("Time",t,"starting training job on problem",idx,probname,"size",len(data[0])+len(data[1]))
-        print()
-        if DATA_THROUGH_QUEUE:
-          message = (idx,data,parts_copy,True) # True stands for "training is on"
-        else:
-          message = (idx,parts_copy,True) # True stands for "training is on"
-        q_in.put(message)
-
-      (idx,loss_sum,posOK_sum,negOK_sum,his_parts) = q_out.get() # this may block
-      parts_copies.append(his_parts) # increase the ``counter'' again
-
-      copy_grads_back_from_param(master_parts,his_parts)
-      optimizer.step()
-    
-      (probname,data) = train_data_list[idx]
-      pos_weight,neg_weight = data[-2],data[-1]
-
-      print("Job finished at on problem",idx,"of weight",pos_weight,neg_weight,flush=True)
-      print("Debug",loss_sum,posOK_sum,negOK_sum)
-      print("Local:",loss_sum/(pos_weight+neg_weight),posOK_sum/pos_weight,negOK_sum/neg_weight)
-      stats += (loss_sum,posOK_sum,negOK_sum)
-      weights += (pos_weight,neg_weight)
-      
     print()
-    print("(Multi)-epoch",epoch,"learning finished at",time.time() - start_time)
+    print("Epoch",epoch,"training finished at",time.time() - start_time)
     model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
     print("Saving model to:",model_name)
     torch.save(master_parts,model_name)
+    print()
 
+    print("stats-weights",stats,weights)
     loss = stats[0]/(weights[0]+weights[1])
     posRate = stats[1]/weights[0]
     negRate = stats[2]/weights[1]
-
     print("Training stats:",loss,posRate,negRate,flush=True)
 
     train_losses.append(loss)
@@ -249,46 +282,18 @@ if __name__ == "__main__":
 
     print("Validating...")
 
-    stats = np.zeros(3) # loss_sum, posOK_sum, negOK_sum
-    weights = np.zeros(2) # pos_weight, neg_weight
+    valid_feed_sequence = random.sample(range(len(valid_data_list)),VALID_SAMPLES_PER_EPOCH) if len(valid_data_list) > VALID_SAMPLES_PER_EPOCH else range(len(valid_data_list))
+    valid_feed_sequence.sort(key=lambda idx : get_size_from_idx(idx,valid_data_list)) # largest go last, because loop_it_out pops from the end
 
-    feed_sequence = list(range(len(valid_data_list)))
-    while feed_sequence or len(parts_copies) < NUM_ACTIVE_TASKS:
-      # we use parts_copies as a counter of idle children in the pool
-      while parts_copies and feed_sequence:
-        parts_copy = parts_copies.pop()
-        idx = feed_sequence.pop()
-        
-        (probname,data) = valid_data_list[idx]
-        copy_parts_and_zero_grad_in_copy(master_parts,parts_copy)
-        t += 1
-        print("Time",t,"starting validation job on problem",idx,probname,"size",len(data[0])+len(data[1]))
-        print()
-        if DATA_THROUGH_QUEUE:
-          message = (idx,data,parts_copy,False) # False stands for "training is off"
-        else:
-          message = (idx,parts_copy,False) # False stands for "training is off"
-        
-        q_in.put(message)
+    (t,stats,weights) = loop_it_out(start_time,t,parts_copies,valid_feed_sequence,valid_data_list,False) # False for evaluating
 
-      (idx,loss_sum,posOK_sum,negOK_sum,his_parts) = q_out.get() # this may block
-      parts_copies.append(his_parts) # increase the ``counter'' again
-
-      (probname,data) = valid_data_list[idx]
-      pos_weight,neg_weight = data[-2],data[-1]
-
-      print("Job finished at on problem",idx,"of weight",pos_weight,neg_weight,flush=True)
-      print("Debug",loss_sum,posOK_sum,negOK_sum)
-      print("Local:",loss_sum/(pos_weight+neg_weight),posOK_sum/pos_weight,negOK_sum/neg_weight)
-      stats += (loss_sum,posOK_sum,negOK_sum)
-      weights += (pos_weight,neg_weight)
-
-    print("(Multi)-epoch",epoch,"validation finished at",time.time() - start_time)
-
+    print()
+    print("Epoch",epoch,"validation finished at",time.time() - start_time)
+  
+    print("stats-weights",stats,weights)
     loss = stats[0]/(weights[0]+weights[1])
     posRate = stats[1]/weights[0]
     negRate = stats[2]/weights[1]
-
     print("Validation stats:",loss,posRate,negRate,flush=True)
 
     valid_losses.append(loss)
