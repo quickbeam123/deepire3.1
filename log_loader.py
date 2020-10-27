@@ -50,6 +50,8 @@ if __name__ == "__main__":
   #
   # To be called as in: ./log_loader.py <folder> *.log-files-listed-line-by-line-in-a-file (an "-s4k on" run of vampire)
   #
+  # optionally, also a file with problem easyness line-by-line records, e.g. mizar_common/prob_easiness_strats1234.txt
+  #
   # data_sign.pt and raw_log_data_*.pt are created in <folder>
 
   prob_easiness = {}
@@ -66,7 +68,7 @@ if __name__ == "__main__":
     for i,line in enumerate(f):
       probname = line[:-1]
       tasks.append((i,probname))
-  pool = Pool(processes=40)
+  pool = Pool(processes=30)
   results = pool.map(load_one, tasks, chunksize = 100)
   pool.close()
   pool.join()
@@ -96,19 +98,17 @@ if __name__ == "__main__":
     prob_data_list[i] = (probname,probweight),probdata
     
     # uncomment for plotting below:
-    '''
     times.append(time_elapsed)
     sizes.append(len(probdata[0])+len(probdata[1])) # len(init)+len(deriv)
     easies.append(easy)
-    '''
 
   # plot the time_elapsed vs size distribution
-  '''
   import matplotlib.pyplot as plt
+  fig, ax = plt.subplots(figsize=(20,10))
+  ax.set_yscale('log')
   sc = plt.scatter(times,sizes,c=easies,marker="+")
   plt.colorbar(sc)
-  plt.savefig("times_sizes.png",dpi=250)
-  '''
+  plt.savefig("times_sizes{}.png".format(sys.argv[2].split("/")[0]),dpi=250)
 
   thax_sign,sine_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
