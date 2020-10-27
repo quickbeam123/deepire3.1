@@ -52,8 +52,8 @@ def contribute(id,model,selec,good,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,m
   return posOK,posTot,negOK,negTot,min_pos_logit
 
 def eval_one(task):
-  (probname,(init,deriv,pars,selec,good,axioms)) = task
-  print(probname)
+  (metainfo,(init,deriv,pars,selec,good,axioms)) = task
+  print(metainfo)
   model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
 
   posOK = 0.0
@@ -93,7 +93,7 @@ def eval_one(task):
   del model
   libc.malloc_trim(ctypes.c_int(0))
 
-  return (probname,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
+  return (metainfo,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -109,6 +109,7 @@ if __name__ == "__main__":
 
   prob_data_list = torch.load(sys.argv[1])
   
+  '''
   results = []
   for task in prob_data_list:
     res = eval_one(task)
@@ -120,7 +121,6 @@ if __name__ == "__main__":
   pool.close()
   pool.join()
   del pool
-  '''
 
   cnt = 0
   posrate_sum = 0.0
