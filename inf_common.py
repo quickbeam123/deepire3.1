@@ -674,8 +674,8 @@ def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff
   ax_idx = {}
   thax_to_str = {}
   good_ax_cnt = 0
-  for ax,num in sorted(axiom_hist.items(),key = lambda x : x[1]):
-    print(ax,num)
+  for i,(ax,num) in enumerate(sorted(axiom_hist.items(),key = lambda x : -x[1])):
+    print(i,ax,num)
     
     if num >= axcnt_cutoff: # change this constant to get something reasonable
       good_ax_cnt += 1
