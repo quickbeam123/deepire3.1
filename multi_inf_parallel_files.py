@@ -28,7 +28,7 @@ import ctypes
 import ctypes.util
 libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
-NUMPROCESSES = 30
+NUMPROCESSES = 20
 
 SCRATCH = "/scratch/sudamar2/"
 
@@ -168,15 +168,17 @@ def worker(q_in, q_out):
     '''
 
 def big_go_last(feed_sequence):
+  WHAT_IS_HUGE = 100000
   WHAT_IS_BIG = 10000
 
-  big = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_BIG]
+  huge = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_HUGE]
+  big = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_BIG and size <= WHAT_IS_HUGE]
   small = [(size,piece_name) for (size,piece_name) in feed_sequence if size <= WHAT_IS_BIG]
 
-  print("big_go_last",len(small),len(big))
+  print("big_go_last",len(small),len(big),len(huge))
 
-  # big.sort() # start with the really big ones so that we are finished with them before the next iteration would be about to start
-  return small #+big
+  big.sort() # start with the really big ones so that we are finished with them before the next iteration would be about to start
+  return small+big
 
 def loop_it_out(start_time,t,feed_sequence,training):
   MAX_ACTIVE_TASKS = NUMPROCESSES
