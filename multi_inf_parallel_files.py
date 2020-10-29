@@ -28,7 +28,7 @@ import ctypes
 import ctypes.util
 libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
-NUMPROCESSES = 20
+NUMPROCESSES = 25
 
 SCRATCH = "/scratch/sudamar2/"
 
@@ -288,6 +288,13 @@ def loop_it_out(start_time,t,feed_sequence,training):
   print('\n'.join(top.traceback.format()))
   '''
 
+def checkpoint(epoch, model, optimizer):
+  print("checkpoint",epoch)
+
+  check_name = "{}/check-epoch{}.pt".format(sys.argv[2],epoch)
+  check = (epoch,model,optimizer)
+  torch.save(check,check_name)
+
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
   # what can be learned from a super-simple TreeNN
@@ -341,9 +348,6 @@ if __name__ == "__main__":
   print(time.time() - start_time,"Initialization finished")
 
   epoch = 0
-  # in addition to the "oficial model" as named above, we checkpoint it as epoch0 here.
-  model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
-  torch.save(master_parts,model_name)
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
@@ -357,6 +361,8 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
   elif HP.OPTIMIZER == HP.Optimizer_ADAM:
     optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
+
+  checkpoint(epoch,master_parts,optimizer)
 
   times = []
   train_losses = []
@@ -406,9 +412,7 @@ if __name__ == "__main__":
     (t,stats,weights) = loop_it_out(start_time,t,train_feed_sequence,True) # True for training
 
     print("Epoch",epoch,"training finished at",time.time() - start_time)
-    model_name = "{}/model-epoch{}.pt".format(sys.argv[2],epoch)
-    print("Saving model to:",model_name)
-    torch.save(master_parts,model_name)
+    checkpoint(epoch,master_parts,optimizer)
     print()
     
     print("stats-weights",stats,weights)
