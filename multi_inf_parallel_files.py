@@ -107,7 +107,7 @@ def big_go_last(feed_sequence):
   big.sort() # start with the really big ones so that we are finished with them before the next iteration would be about to start
   return small+big
 
-def loop_it_out(start_time,t,feed_sequence,training):
+def loop_it_out(start_time,t,feed_sequence,optimizer,scheduler,training):
   MAX_ACTIVE_TASKS = NUMPROCESSES
   
   num_active_tasks = 0
@@ -148,6 +148,8 @@ def loop_it_out(start_time,t,feed_sequence,training):
       copy_grads_back_from_param(master_parts,his_parts)
       print(time.time() - start_time,"copy_grads_back_from_param finished")
       optimizer.step()
+      if scheduler:
+        scheduler.step()
       print(time.time() - start_time,"optimizer.step() finished")
 
     print(time.time() - start_time,"job finished at on problem",probname,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
@@ -242,6 +244,12 @@ if __name__ == "__main__":
 
     save_checkpoint(epoch,master_parts,optimizer)
 
+  if False: # TODO: make this a HP entry?
+    MAX_LR = 0.01
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,max_lr=MAX_LR,steps_per_epoch=len(train_data_idx),epochs=50)
+  else:
+    scheduler = None
+
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
   my_processes = []
@@ -251,6 +259,7 @@ if __name__ == "__main__":
     my_processes.append(p)
 
   times = []
+  # rates = []
   train_losses = []
   train_posrates = []
   train_negrates = []
@@ -287,15 +296,23 @@ if __name__ == "__main__":
   while True:
     epoch += 1
    
-    if epoch > 500:
+    if epoch > 50:
       break
-    
+  
     times.append(epoch)
-    
+    # rates.append(scheduler.get_last_lr()[0]/MAX_LR)
+
+    '''
+    lr = 0.0001*epoch
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    times.append(lr)
+    '''
+
     train_feed_sequence = random.sample(train_data_idx,TRAIN_SAMPLES_PER_EPOCH) if len(train_data_idx) > TRAIN_SAMPLES_PER_EPOCH else train_data_idx.copy()
     train_feed_sequence = big_go_last(train_feed_sequence) # largest go last, because loop_it_out pops from the end
 
-    (t,stats,weights) = loop_it_out(start_time,t,train_feed_sequence,True) # True for training
+    (t,stats,weights) = loop_it_out(start_time,t,train_feed_sequence,optimizer,scheduler,True) # True for training
 
     print("Epoch",epoch,"training finished at",time.time() - start_time)
     save_checkpoint(epoch,master_parts,optimizer)
@@ -317,7 +334,7 @@ if __name__ == "__main__":
     valid_feed_sequence = random.sample(valid_data_idx,VALID_SAMPLES_PER_EPOCH) if len(valid_data_idx) > VALID_SAMPLES_PER_EPOCH else valid_data_idx.copy()
     valid_feed_sequence.sort() # largest go last, because loop_it_out pops from the end
 
-    (t,stats,weights) = loop_it_out(start_time,t,valid_feed_sequence,False) # False for evaluating
+    (t,stats,weights) = loop_it_out(start_time,t,valid_feed_sequence,optimizer,scheduler,False) # False for evaluating
 
     print("Epoch",epoch,"validation finished at",time.time() - start_time)
     print("stats-weights",stats,weights)

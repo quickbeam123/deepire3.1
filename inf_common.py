@@ -234,9 +234,10 @@ def name_initial_model_suffix():
     "_UseSine" if HP.USE_SINE else "")
 
 def name_learning_regime_suffix():
-  return "_o{}_lr{}_p{}_swapout{}_trr{}.txt".format(
+  return "_o{}_lr{}{}_p{}_swapout{}_trr{}.txt".format(
     HP.OptimizerName(HP.OPTIMIZER),
     HP.LEARN_RATE,
+    "m{}".format(HP.MOMENTUM) if HP.OPTIMIZER == HP.Optimizer_SGD else "",
     HP.POS_WEIGHT_EXTRA,
     HP.SWAPOUT,
     HP.TestRiskRegimenName(HP.TRR))
@@ -840,6 +841,7 @@ def plot_one(filename,times,train_losses,train_posrates,train_negrates,valid_los
   ax1.set_ylabel('loss', color=color)
   tl, = ax1.plot(times, train_losses, "--", linewidth = 1, label = "train_loss", color=color)
   vl, = ax1.plot(times, valid_losses, "-", linewidth = 1,label = "valid_loss", color=color)
+  # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis

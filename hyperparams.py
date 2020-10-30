@@ -103,6 +103,7 @@ TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.001
+MOMENTUM = 0.9 # only for SGD
 
 Optimizer_SGD = 1
 Optimizer_ADAM = 2
