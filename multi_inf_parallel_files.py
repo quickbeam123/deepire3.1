@@ -83,26 +83,7 @@ def eval_and_or_learn_on_one(probname,parts_file,training,log):
   return (loss_sum[0].detach().item(),posOK_sum,negOK_sum,tot_pos,tot_neg)
 
 def worker(q_in, q_out):
-  '''
-  log = open("worker{}.log".format(os.getpid()), 'w')
-  sys.stdout = log
-  sys.stderr = log
-  '''
-
-  # gc.set_debug(gc.DEBUG_LEAK | gc.DEBUG_STATS)
-
-  '''
-  from guppy import hpy
-  h = hpy()
-  '''
-  
-  '''
-  import tracemalloc
-  tracemalloc.start(10)  # save upto 5 stack frames
-  
-  time1 = tracemalloc.take_snapshot()
-  time2 = None
-  '''
+  log = sys.stdout
 
   while True:
     (probname,parts_file,training) = q_in.get()
@@ -112,60 +93,6 @@ def worker(q_in, q_out):
     q_out.put((probname,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,parts_file,start_time,time.time()))
 
     libc.malloc_trim(ctypes.c_int(0))
-
-    '''
-    print(h.heap(),file=log,flush=True)
-
-    cnt = 0
-    sizes = 0
-    for tracked_object in gc.get_objects():
-      cnt += 1
-      sizes += sys.getsizeof(tracked_object)
-    print("gc-info",cnt,"objects of total size",sizes,flush=True)
-    '''
-
-    '''
-    cnt = 0
-    sizes = 0
-    for tracked_object in gc.get_objects():
-      cnt += 1
-      sizes += sys.getsizeof(tracked_object)
-    print("begofeGC",cnt,"objects of total size",sizes,file=log,flush=True)
-
-    stat = gc.collect()
-    
-    print("collected",stat,file=f,flush=True)
-    
-    cnt = 0
-    sizes = 0
-    for tracked_object in gc.get_objects():
-      cnt += 1
-      sizes += sys.getsizeof(tracked_object)
-    print("afterGC",cnt,"objects of total size",sizes,file=log,flush=True)
-    '''
-
-    '''
-    if time2 is not None:
-      print("Diff to prev",file=log,flush=True)
-      new_time = tracemalloc.take_snapshot()
-      stats = new_time.compare_to(time2, 'lineno')
-      for stat in stats[:10]:
-        print(stat,file=f)
-      stats = new_time.compare_to(time2, 'traceback')
-      top = stats[0]
-      print('\n'.join(top.traceback.format()),file=f,flush=True)
-      time2 = new_time
-    else:
-      time2 = tracemalloc.take_snapshot()
-
-    print("\nDiff to base",file=log,flush=True)
-    stats = time2.compare_to(time1, 'lineno')
-    for stat in stats[:10]:
-      print(stat,file=f)
-    stats = time2.compare_to(time1, 'traceback')
-    top = stats[0]
-    print('\n'.join(top.traceback.format()),file=log,flush=True)
-    '''
 
 def big_go_last(feed_sequence):
   WHAT_IS_HUGE = 100000
@@ -244,56 +171,15 @@ def loop_it_out(start_time,t,feed_sequence,training):
     
   return (t,stats,weights)
 
-  '''
-  print("gc.get_stats()",gc.get_stats())
-  cnt = 0
-  sizes = 0
-  for tracked_object in gc.get_objects():
-    cnt += 1
-    sizes += sys.getsizeof(tracked_object)
-  print("begofeGC",cnt,"objects of total size",sizes,flush=True)
-
-  stat = gc.collect()
-  
-  print("collected",stat,flush=True)
-  
-  cnt = 0
-  sizes = 0
-  for tracked_object in gc.get_objects():
-    cnt += 1
-    sizes += sys.getsizeof(tracked_object)
-  print("afterGC",cnt,"objects of total size",sizes,flush=True)
-  '''
-
-  '''
-  if time2 is not None:
-    print("Diff to prev",flush=True)
-    new_time = tracemalloc.take_snapshot()
-    stats = new_time.compare_to(time2, 'lineno')
-    for stat in stats[:10]:
-      print(stat)
-    stats = new_time.compare_to(time2, 'traceback')
-    top = stats[0]
-    print('\n'.join(top.traceback.format()))
-    time2 = new_time
-  else:
-    time2 = tracemalloc.take_snapshot()
-
-  print("\nDiff to base")
-  stats = time2.compare_to(time1, 'lineno')
-  for stat in stats[:10]:
-    print(stat)
-  stats = time2.compare_to(time1, 'traceback')
-  top = stats[0]
-  print('\n'.join(top.traceback.format()))
-  '''
-
-def checkpoint(epoch, model, optimizer):
+def save_checkpoint(epoch, model, optimizer):
   print("checkpoint",epoch)
 
   check_name = "{}/check-epoch{}.pt".format(sys.argv[2],epoch)
   check = (epoch,model,optimizer)
   torch.save(check,check_name)
+
+def load_checkpoint(filename):
+  return torch.load(filename)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -328,16 +214,6 @@ if __name__ == "__main__":
   valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
   print("Loaded valid data:",len(valid_data_idx))
   
-  if len(sys.argv) >= 4:
-    master_parts = torch.load(sys.argv[3])
-    print("Loaded model parts",sys.argv[3])
-  else:
-    thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
-    master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
-    model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
-    torch.save(master_parts,model_name)
-    print("Created model parts and saved to",model_name)
-
   if HP.TRR == HP.TestRiskRegimen_OVERFIT:
     # merge validation data back to training set (and ditch early stopping regularization)
     train_data_idx += valid_data_idx
@@ -348,6 +224,23 @@ if __name__ == "__main__":
   print(time.time() - start_time,"Initialization finished")
 
   epoch = 0
+  
+  if len(sys.argv) >= 4:
+    (epoch,master_parts,optimizer) = load_checkpoint(sys.argv[3])
+    print("Loaded checkpoint",sys.argv[3])
+  else:
+    thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+    master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
+    model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
+    torch.save(master_parts,model_name)
+    print("Created model parts and saved to",model_name)
+    
+    if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
+      optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
+    elif HP.OPTIMIZER == HP.Optimizer_ADAM:
+      optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
+
+    save_checkpoint(epoch,master_parts,optimizer)
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
@@ -356,13 +249,6 @@ if __name__ == "__main__":
     p = torch.multiprocessing.Process(target=worker, args=(q_in,q_out))
     p.start()
     my_processes.append(p)
-
-  if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
-    optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
-  elif HP.OPTIMIZER == HP.Optimizer_ADAM:
-    optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
-
-  checkpoint(epoch,master_parts,optimizer)
 
   times = []
   train_losses = []
@@ -412,7 +298,7 @@ if __name__ == "__main__":
     (t,stats,weights) = loop_it_out(start_time,t,train_feed_sequence,True) # True for training
 
     print("Epoch",epoch,"training finished at",time.time() - start_time)
-    checkpoint(epoch,master_parts,optimizer)
+    save_checkpoint(epoch,master_parts,optimizer)
     print()
     
     print("stats-weights",stats,weights)
