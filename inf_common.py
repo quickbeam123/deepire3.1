@@ -142,7 +142,7 @@ class CatAndNonLinearMultiary(CatAndNonLinear):
 
 class PairUp(torch.nn.Module): # we need this (instead of Sequential), because of "args : List[Tensor]" in forward (Sequential cannot be annotated for jit)
   def __init__(self, m1 : torch.nn.Module, m2 : torch.nn.Module):
-    super(CastFromList, self).__init__()
+    super(PairUp, self).__init__()
     self.m1 = m1
     self.m2 = m2
 
