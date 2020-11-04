@@ -95,12 +95,9 @@ def worker(q_in, q_out):
     libc.malloc_trim(ctypes.c_int(0))
 
 def big_go_last(feed_sequence):
-  WHAT_IS_HUGE = 100000
-  WHAT_IS_BIG = 10000
-
-  huge = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_HUGE]
-  big = [(size,piece_name) for (size,piece_name) in feed_sequence if size > WHAT_IS_BIG and size <= WHAT_IS_HUGE]
-  small = [(size,piece_name) for (size,piece_name) in feed_sequence if size <= WHAT_IS_BIG]
+  huge = [(size,piece_name) for (size,piece_name) in feed_sequence if size > HP.WHAT_IS_HUGE]
+  big = [(size,piece_name) for (size,piece_name) in feed_sequence if size > HP.WHAT_IS_BIG and size <= HP.WHAT_IS_HUGE]
+  small = [(size,piece_name) for (size,piece_name) in feed_sequence if size <= HP.WHAT_IS_BIG]
 
   print("big_go_last",len(small),len(big),len(huge))
 

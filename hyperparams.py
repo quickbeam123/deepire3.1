@@ -28,14 +28,19 @@ def ThaxSourceName(val):
 
 THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
-AXCNT_CUTOFF = 1000 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+AXCNT_CUTOFF = 255 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
-USE_SINE = False
+COMPRESSION_THRESHOLD = 10000
+
+WHAT_IS_BIG = 12000
+WHAT_IS_HUGE = 120000
+
+USE_SINE = True
 
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 128
+EMBED_SIZE = 256
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -102,7 +107,7 @@ def TestRiskRegimenName(val):
 TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
-LEARN_RATE = 0.001
+LEARN_RATE = 0.0001
 MOMENTUM = 0.9 # only for SGD
 
 Optimizer_SGD = 1
@@ -116,4 +121,4 @@ def OptimizerName(val):
 
 OPTIMIZER = Optimizer_ADAM
 
-POS_WEIGHT_EXTRA = 2.0
+POS_WEIGHT_EXTRA = 1.5

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import inf_common as IC
+import hyperparams as HP
 
 import torch
 from torch import Tensor
@@ -48,7 +49,7 @@ def compress_to_treshold(prob_data_list,treshold):
   print("Small",small)
 
   print("Compressing for treshold",treshold)
-  size_and_prob.sort()
+  size_and_prob.sort(key=lambda x : x[0])
   
   compressed = []
   
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     print("Done")
 
   if True:
-    prob_data_list = compress_to_treshold(prob_data_list,treshold = 4000)
+    prob_data_list = compress_to_treshold(prob_data_list,treshold = HP.COMPRESSION_THRESHOLD)
 
   SAVE_PIECES = True
 
