@@ -586,7 +586,7 @@ def load_one(filename,max_size = None):
         
         update_depths(empty,depths,max_depth)
           
-  assert(empty is not None)
+  assert (empty is not None), "Check "+filename
 
   # NOTE: there are some things that should/could be done differently in the future
   #
