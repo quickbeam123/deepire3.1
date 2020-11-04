@@ -33,8 +33,8 @@ if __name__ == "__main__":
   IC.create_saver(deriv_arits)
   import inf_saver as IS
 
-  parts = torch.load(sys.argv[2])
-  parts_copies = torch.load(sys.argv[2])
+  (_epoch,parts,_optim) = torch.load(sys.argv[2])
+  (_epoch,parts_copies,_optim) = torch.load(sys.argv[2])
 
   print("Loaded model from",sys.argv[2])
 
