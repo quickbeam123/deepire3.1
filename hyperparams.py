@@ -57,6 +57,8 @@ CatLayerKind_SMALL = 1
 CatLayerKind_BIGGER = 2  # as used at AITP
 CatLayerKind_DOUBLE_NONLIN = 3  # seems to make more sense
 
+BOTTLENECK_EXPANSION_RATIO = 2 # is used halved for the eval layer
+
 def CatLayerKindName(val):
   if val == CatLayerKind_SMALL:
     return "SMALL"
@@ -65,7 +67,7 @@ def CatLayerKindName(val):
   elif val == CatLayerKind_DOUBLE_NONLIN:
     return "DOUBLE_NONLIN"
 
-CAT_LAYER = CatLayerKind_DOUBLE_NONLIN
+CAT_LAYER = CatLayerKind_BIGGER
 
 EvalLayerKind_LINEAR = 1
 EvalLayerKind_NONLIN = 2

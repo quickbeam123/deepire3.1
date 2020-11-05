@@ -90,8 +90,11 @@ class CatAndNonLinear(torch.nn.Module):
     if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
       self.first = torch.nn.Linear(arit*dim,dim)
     else: # for BIGGER and DOUBLE_NONLIN
-      self.first = torch.nn.Linear(arit*dim,(arit+1)*dim//2)
-      self.second = torch.nn.Linear((arit+1)*dim//2,dim)
+      self.first = torch.nn.Linear(arit*dim,dim*HP.BOTTLENECK_EXPANSION_RATIO)
+      self.second = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim*HP.BOTTLENECK_EXPANSION_RATIO if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN else dim)
+      
+    if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
+      self.third = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim)
 
     if HP.LAYER_NORM == HP.LayerNorm_ON:
       self.epilog = torch.nn.LayerNorm(dim)
@@ -113,6 +116,7 @@ class CatAndNonLinear(torch.nn.Module):
 
     if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
       x = self.nonlin(x)
+      x = self.third(x)
 
     x = self.epilog(x)
 
@@ -213,9 +217,9 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
   else:
     eval_net = torch.nn.Sequential(
          torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
-         torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE//2),
+         torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2),
          torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
-         torch.nn.Linear(HP.EMBED_SIZE//2,1))
+         torch.nn.Linear(HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2,1))
 
   if HP.DEEPER:
     eval_net = torch.nn.Sequential(Deepifyer(HP.EMBED_SIZE),eval_net)
@@ -223,11 +227,12 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
   return torch.nn.ModuleList([init_embeds,sine_embedder,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_LayerNorm{}_Dropout{}{}{}.pt".format(
+  return "_{}_{}_CatLay{}_EvalLay{}_BER{}_LayerNorm{}_Dropout{}{}{}.pt".format(
     HP.EMBED_SIZE,
     HP.NonLinKindName(HP.NONLIN),
     HP.CatLayerKindName(HP.CAT_LAYER),
     HP.EvalLayerKindName(HP.EVAL_LAYER),
+    HP.BOTTLENECK_EXPANSION_RATIO,
     HP.LayerNormName(HP.LAYER_NORM),
     HP.DROPOUT,
     "_Deeper" if HP.DEEPER else "",
