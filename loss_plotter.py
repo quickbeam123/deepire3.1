@@ -48,7 +48,7 @@ if __name__ == "__main__":
           valid_posrates.append(posrate)
           valid_negrates.append(negrate)
 
-    IC.plot_one("deleteme.png",times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
+    IC.plot_one("{}_deleteme.png".format(sys.argv[1].split("/")[0]),times,train_losses,train_posrates,train_negrates,valid_losses,valid_posrates,valid_negrates)
 
   idx = np.argmin(train_losses)
   print("Best train loss model",times[idx])
