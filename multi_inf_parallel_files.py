@@ -28,8 +28,6 @@ import ctypes
 import ctypes.util
 libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
-NUMPROCESSES = 25
-
 SCRATCH = "/scratch/sudamar2/"
 
 def copy_grads_back_from_param(parts,parts_copies):
@@ -105,7 +103,7 @@ def big_go_last(feed_sequence):
   return small+big
 
 def loop_it_out(start_time,t,feed_sequence,optimizer,scheduler,training):
-  MAX_ACTIVE_TASKS = NUMPROCESSES
+  MAX_ACTIVE_TASKS = HP.NUMPROCESSES
   
   num_active_tasks = 0
   
@@ -227,6 +225,11 @@ if __name__ == "__main__":
   if len(sys.argv) >= 4:
     (epoch,master_parts,optimizer) = load_checkpoint(sys.argv[3])
     print("Loaded checkpoint",sys.argv[3])
+  
+    # update the learning rate according to hyperparams
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = HP.LEARN_RATE
+    print("Set optimizer's learning rate to",HP.LEARN_RATE)  
   else:
     thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
     master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
@@ -250,7 +253,7 @@ if __name__ == "__main__":
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
   my_processes = []
-  for i in range(NUMPROCESSES):
+  for i in range(HP.NUMPROCESSES):
     p = torch.multiprocessing.Process(target=worker, args=(q_in,q_out))
     p.start()
     my_processes.append(p)
@@ -293,7 +296,7 @@ if __name__ == "__main__":
   while True:
     epoch += 1
    
-    if epoch > 50:
+    if epoch > 1500:
       break
   
     times.append(epoch)

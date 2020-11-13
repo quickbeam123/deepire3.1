@@ -97,6 +97,8 @@ DEEPER = False
 
 # LEARNING PARAMS:
 
+NUMPROCESSES = 25
+
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2
 
