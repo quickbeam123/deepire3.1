@@ -72,3 +72,7 @@ compressor.py
 
 blob_trajectory.py
 - For every clause in big_blob.pt (create by compressor), plot it's logits as they develop along training epochs.
+
+calibrator.py
+- since multi_inf_parallel(files) no longer evaluates on the whole train/valid set per epoch (it only works with TRAIN_SAMPLES_PER_EPOCH/VALID_SAMPLES_PER_EPOCH), moreover, since the stats from training are anyway not precise (the model keeps changing), in order to pick the best model train/valid/both-wise, does not matter, we will need to use this tool to do the precise eval
+- idea: use all the models you are interested in evaluating in-one-go to evaluate on a single merged graph and then on the next (or do this in parallel using workers)

@@ -239,10 +239,11 @@ def name_initial_model_suffix():
     "_UseSine" if HP.USE_SINE else "")
 
 def name_learning_regime_suffix():
-  return "_o{}_lr{}{}_p{}_swapout{}_trr{}.txt".format(
+  return "_o{}_lr{}{}_numproc{}_p{}_swapout{}_trr{}.txt".format(
     HP.OptimizerName(HP.OPTIMIZER),
     HP.LEARN_RATE,
     "m{}".format(HP.MOMENTUM) if HP.OPTIMIZER == HP.Optimizer_SGD else "",
+    HP.NUMPROCESSES,
     HP.POS_WEIGHT_EXTRA,
     HP.SWAPOUT,
     HP.TestRiskRegimenName(HP.TRR))
@@ -471,6 +472,80 @@ class LearningModel(torch.nn.Module):
       store[id] = embed
       if id in self.pos_vals or id in self.neg_vals:
         loss += self.contribute(id,embed)
+
+    return (loss,self.posOK,self.negOK)
+
+# EvalMultiModel model class - an ugly copy-paste-modify of LearningModel above (try keeping in sync)
+class EvalMultiModel(torch.nn.Module):
+  def __init__(self,models,
+      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg):
+    super().__init__()
+  
+    self.dim = len(models)
+    
+    # properly wrap in ModuleList, so that eval from self propages all the way to pieces, and turns off dropout!
+    
+    self.models = torch.nn.ModuleList([torch.nn.ModuleList((init_embeds,sine_embedder,deriv_mlps,eval_net)) for (init_embeds,sine_embedder,deriv_mlps,eval_net) in models])
+    
+    self.init = init
+    self.deriv = deriv
+    self.pars = pars
+    self.pos_vals = pos_vals
+    self.neg_vals = neg_vals
+  
+    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0
+    
+    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
+  
+  def contribute(self, id: int, embeds : List[Tensor]):
+    pos = self.pos_vals[id]
+    neg = self.neg_vals[id]
+    gold = torch.tensor([pos/(pos+neg)])
+    
+    contrib = torch.zeros(self.dim)
+    
+    for i,(init_embeds,sine_embedder,deriv_mlps,eval_net) in enumerate(self.models):
+      val = eval_net(embeds[i])
+    
+      if val[0].item() >= 0.0:
+        self.posOK[i] += pos
+      else:
+        self.negOK[i] += neg
+  
+      contrib[i] = self.criterion(val,gold)
+    
+    return (pos+neg)*contrib
+
+  # Construct the whole graph and return its loss
+  def forward(self):
+    store : Dict[int, List[Tensor]] = {} # each id stores its embeddings
+    
+    loss = torch.zeros(self.dim)
+    self.posOK = torch.zeros(self.dim)
+    self.negOK = torch.zeros(self.dim)
+    
+    for id, (thax,sine) in self.init:
+      # print("init",id)
+      
+      str_thax = str(thax)
+      embeds = [ init_embeds[str_thax]() + sine_embedder(sine) for (init_embeds,sine_embedder,deriv_mlps,eval_net) in self.models]
+      
+      store[id] = embeds
+      
+      if id in self.pos_vals or id in self.neg_vals:
+        loss += self.contribute(id,embeds)
+    
+    for id, rule in self.deriv:
+      # print("deriv",id)
+      
+      par_embeds = [store[par] for par in self.pars[id]]
+      str_rule = str(rule)
+      embeds = [ deriv_mlps[str_rule]([par_embed[i] for par_embed in par_embeds]) for i,(init_embeds,sine_embedder,deriv_mlps,eval_net) in enumerate(self.models)]
+      
+      store[id] = embeds
+      
+      if id in self.pos_vals or id in self.neg_vals:
+        loss += self.contribute(id,embeds)
 
     return (loss,self.posOK,self.negOK)
 
