@@ -161,6 +161,13 @@ def plot_summary_and_report_best(summary_kind,loss_sums,posOK_sums,negOK_sums,to
   print("Best",summary_kind,"loss model:",models_nums[idx],end=" ")
   print("loss",losses[idx],"posrate",posrates[idx],"negrate",negrates[idx])
 
+  '''
+  print()
+  for idx,loss in sorted(enumerate(losses),key=lambda x: -x[1]):
+    print(models_nums[idx])
+    print("loss",losses[idx],"posrate",posrates[idx],"negrate",negrates[idx])
+  '''
+
   # Let's go to compute variances
 
   losses_devs = weighted_std_deviations(losses,loss_sums,tot_poss+tot_negs,tot_pos+tot_neg)
@@ -233,8 +240,20 @@ if __name__ == "__main__":
   print("Loaded valid data:",len(valid_data_idx))
   
   feed_sequence = [(piece_name,False,size) for (size,piece_name) in train_data_idx] + [(piece_name,True,size) for (size,piece_name) in valid_data_idx]
-  feed_sequence.sort(reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
   
+  if True:
+    # take the largest only later, i.e. by size, then name, decreasing
+    # feed_sequence.sort(key=lambda x: (x[2],x[0]), reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
+    # I though the above seems to be biased towards the easir proofs,
+    # however, the better explanation was that the loss on training problems is generally better
+    # during eval (as opposed to during training) as dropout is obviously off
+    
+    feed_sequence.sort(reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
+  else:
+    pass # TODAY, we want to keep validation tasks in the back, so as to just validate!
+
+  print(flush=True)
+
   # MODEL LOADING
   
   checkpoint_names = []
