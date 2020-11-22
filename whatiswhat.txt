@@ -76,3 +76,7 @@ blob_trajectory.py
 calibrator.py
 - since multi_inf_parallel(files) no longer evaluates on the whole train/valid set per epoch (it only works with TRAIN_SAMPLES_PER_EPOCH/VALID_SAMPLES_PER_EPOCH), moreover, since the stats from training are anyway not precise (the model keeps changing), in order to pick the best model train/valid/both-wise, does not matter, we will need to use this tool to do the precise eval
 - idea: use all the models you are interested in evaluating in-one-go to evaluate on a single merged graph and then on the next (or do this in parallel using workers)
+
+model_visualizer_(raw).py
+- load the (raw) dataset and a model
+- start looking at individual abstract clauses to see what the models says about them (and perhaps also compare this to the gold thingie...)
