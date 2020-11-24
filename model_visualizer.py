@@ -257,20 +257,49 @@ enum class InferenceRule : unsigned char {
 }; // class InferenceRule
 '''
 
+def contribute(repr,depth,posval,negval,val,logit):
+  # print(repr,depth,isgood,val,logit)
+
+  (abs_repr,sines) = repr
+  sines = tuple(sines)
+
+  group = abs_repr_groups[abs_repr]
+  if sines in group:
+    (models_val,models_logit,pos_labels,neg_labels) = group[sines]
+    assert models_val == val
+    assert models_logit == logit
+  else:
+    models_val = val
+    models_logit = logit
+    pos_labels = 0.0
+    neg_labels = 0.0
+
+  pos_labels += posval
+  neg_labels += negval
+
+  group[sines] = (models_val,models_logit,pos_labels,neg_labels)
+
+  '''
+  print(abs_repr)
+  for sines, (models_val,models_logit,pos_labels,neg_labels) in group.items():
+    print(sines,(models_val,models_logit,pos_labels,neg_labels) )
+  print()
+  '''
+
 def eval_one(init,deriv,pars,pos_vals,negvals):
   for id, (thax,sine) in init:
     if thax == -1:
       st = "-1"
-      repr = "conj"
+      abs_repr = "conj"
     elif thax in thax_to_str:
       st = thax_to_str[thax]
-      repr = st
+      abs_repr = st
     else:
       assert thax == 0
       st = str(thax)
-      repr = "other"
+      abs_repr = "other"
     
-    repr = f"{repr}({sine})"
+    repr = (abs_repr,[sine])
     
     # communication via st and sine
     getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
@@ -280,13 +309,23 @@ def eval_one(init,deriv,pars,pos_vals,negvals):
     
     reprs[id] = repr
     
-    if repr not in depths:
-      depths[repr] = 0
-      print(0,val,logit,pos_vals[id],negvals[id],repr)
-      
-      hist[(0,val)].append(repr)
-
+    depth = 1
+    if abs_repr not in seen:
+      seen.add(abs_repr)
+      depths[abs_repr] = depth
+    
+    if pos_vals[id] + negvals[id] > 0.0:
+      contribute(repr,depth,pos_vals[id],negvals[id],val,logit)
+    
   for id, (rule) in deriv:
+    if any((p not in reprs) for p in pars[id]):
+      continue
+  
+    sines = [s for p in pars[id] for s in reprs[p][1]]
+  
+    if len(sines) > 2:
+      continue
+  
     if rule == 666:
       my_pars = pars[id]
       assert(len(my_pars) == 1)
@@ -299,17 +338,22 @@ def eval_one(init,deriv,pars,pos_vals,negvals):
     logit = model(id) # calling forward
     val = (logit >= 0.0) # interpreting the logit
     
-    repr = f"{repr}({','.join([reprs[p] for p in pars[id]])})"
+    abs_repr = f"{repr}({','.join([reprs[p][0] for p in pars[id]])})"
+
+    repr = (abs_repr,sines)
+
     reprs[id] = repr
 
-    if repr not in depths:
-      depth = 1+max([depths[reprs[p]] for p in pars[id]])
-      depths[repr] = depth
+    if abs_repr not in seen:
+      seen.add(abs_repr)
       
-      hist[(depth,val)].append(repr)
-      
-      if depth < 5:
-        print(depth,val,logit,pos_vals[id],negvals[id],repr)
+      depth = 1+max([depths[reprs[p][0]] for p in pars[id]])
+      depths[abs_repr] = depth
+    else:
+      depth = depths[abs_repr]
+    
+    if pos_vals[id] + negvals[id] > 0.0:
+      contribute(repr,depth,pos_vals[id],negvals[id],val,logit)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -333,11 +377,12 @@ if __name__ == "__main__":
   
   model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
   
-  depths = {} # reprs -> its term depth (also works as "seen" set)
+  seen = set() # what the repr already printed?
+  depths = {} # reprs -> its term depth
+  
+  abs_repr_groups = defaultdict(dict) # abs_repr -> (sines -> (model_s_val,logic,pos_labels,neg_labels))
 
-  hist = defaultdict(list) # (depth,val) -> examples
-
-  for (size,probname) in data_idx[:100]:
+  for (size,probname) in data_idx:
     print("Opening",probname,"of size",size)
     data = torch.load("{}/pieces/{}".format(sys.argv[1],probname))
     (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
@@ -346,8 +391,14 @@ if __name__ == "__main__":
     reprs = {} # id -> clause_string_representation
     eval_one(init,deriv,pars,pos_vals,neg_vals)
 
-  print()
-
+  '''
   for (depth,val),examples in sorted(hist.items(),reverse=True):
     print((depth,val),len(examples),examples[:10] if depth <= 3 else "")
+  '''
+  print()
+  for abs_repr, group in abs_repr_groups.items():
+    print(abs_repr)
+    for sines, (models_val,models_logit,pos_labels,neg_labels) in group.items():
+      print(sines,(models_val,models_logit,pos_labels,neg_labels) )
+    print()
  
