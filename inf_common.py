@@ -33,7 +33,7 @@ class Embed(torch.nn.Module):
   weight: Tensor
   
   def __init__(self, dim : int):
-    super(Embed, self).__init__()
+    super().__init__()
     
     self.weight = torch.nn.parameter.Parameter(torch.Tensor(dim))
     self.reset_parameters()
@@ -44,38 +44,9 @@ class Embed(torch.nn.Module):
   def forward(self) -> Tensor:
     return self.weight
 
-class Deepifyer(torch.nn.Module):
-  def __init__(self, dim : int):
-    super(Deepifyer, self).__init__()
-    if HP.DROPOUT > 0.0:
-      self.prolog = torch.nn.Dropout(HP.DROPOUT)
-    else:
-      self.prolog = torch.nn.Identity(dim)
-
-    if HP.NONLIN == HP.NonLinKind_TANH:
-      self.nonlin = torch.nn.Tanh()
-    else:
-      self.nonlin = torch.nn.ReLU()
-
-    self.meat = torch.nn.Linear(dim,dim)
-
-    if HP.LAYER_NORM == HP.LayerNorm_ON:
-      self.epilog = torch.nn.LayerNorm(dim)
-    else:
-      self.epilog = torch.nn.Identity(dim)
-
-  def forward(self,input : Tensor) -> Tensor:
-    x = self.prolog(input)
-    x = self.meat(x)
-    x = self.nonlin(x)
-    x = self.epilog(x)
-
-    # and we finish with the residual connection trick
-    return (input + x)/2.0
-
 class CatAndNonLinear(torch.nn.Module):
   def __init__(self, dim : int, arit: int):
-    super(CatAndNonLinear, self).__init__()
+    super().__init__()
     
     if HP.DROPOUT > 0.0:
       self.prolog = torch.nn.Dropout(HP.DROPOUT)
@@ -87,16 +58,10 @@ class CatAndNonLinear(torch.nn.Module):
     else:
       self.nonlin = torch.nn.ReLU()
     
-    if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
-      self.first = torch.nn.Linear(arit*dim,dim)
-    else: # for BIGGER and DOUBLE_NONLIN
-      self.first = torch.nn.Linear(arit*dim,dim*HP.BOTTLENECK_EXPANSION_RATIO)
-      self.second = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim*HP.BOTTLENECK_EXPANSION_RATIO if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN else dim)
-      
-    if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
-      self.third = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim)
-
-    if HP.LAYER_NORM == HP.LayerNorm_ON:
+    self.first = torch.nn.Linear(arit*dim,dim*HP.BOTTLENECK_EXPANSION_RATIO)
+    self.second = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim)
+    
+    if HP.LAYER_NORM:
       self.epilog = torch.nn.LayerNorm(dim)
     else:
       self.epilog = torch.nn.Identity(dim)
@@ -106,17 +71,9 @@ class CatAndNonLinear(torch.nn.Module):
     
     x = self.prolog(x)
     
-    if HP.CAT_LAYER == HP.CatLayerKind_SMALL:
-      x = self.first(x)
-      x = self.nonlin(x)
-    else: # for BIGGER and DOUBLE_NONLIN
-      x = self.first(x)
-      x = self.nonlin(x)
-      x = self.second(x)
-
-    if HP.CAT_LAYER == HP.CatLayerKind_DOUBLE_NONLIN:
-      x = self.nonlin(x)
-      x = self.third(x)
+    x = self.first(x)
+    x = self.nonlin(x)
+    x = self.second(x)
 
     x = self.epilog(x)
 
@@ -146,7 +103,7 @@ class CatAndNonLinearMultiary(CatAndNonLinear):
 
 class PairUp(torch.nn.Module): # we need this (instead of Sequential), because of "args : List[Tensor]" in forward (Sequential cannot be annotated for jit)
   def __init__(self, m1 : torch.nn.Module, m2 : torch.nn.Module):
-    super(PairUp, self).__init__()
+    super().__init__()
     self.m1 = m1
     self.m2 = m2
 
@@ -176,6 +133,35 @@ class EmptySineEmbedder(torch.nn.Module):
   def forward(self,sine : int) -> Tensor:
     return torch.zeros(self.dim) # ignoring sine
 
+class SineEmbellisher(torch.nn.Module):
+  effective_max: Final[int]
+
+  def __init__(self, dim : int, effective_max : int):
+    super().__init__()
+    
+    self.net = torch.nn.Sequential(
+     torch.nn.Linear(dim+1,dim*HP.BOTTLENECK_EXPANSION_RATIO//2),
+     torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
+     torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO//2,dim))
+    
+    self.effective_max = effective_max
+
+  def forward(self,sine : int, embed : Tensor) -> Tensor:
+    if sine == 255:
+      sine_float = self.effective_max
+    else:
+      sine_float = float(sine)
+    val = sine_float/self.effective_max
+    return self.net(torch.cat((embed,torch.tensor([val]))))
+
+class EmptySineEmbellisher(torch.nn.Module):
+  def __init__(self, dim : int):
+    super().__init__()
+    self.dim = dim
+
+  def forward(self,sine : int, embed : Tensor) -> Tensor:
+    return embed # simply ignoring sine
+
 def get_initial_model(thax_sign,sine_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
   if HP.SWAPOUT > 0.0:
@@ -184,10 +170,13 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
   
   if HP.USE_SINE:
     sine_sign.remove(255)
-    sine_effective_max = max(sine_sign)+1
-    sine_embedder = SineEmbedder(HP.EMBED_SIZE,sine_effective_max)
+    sine_effective_max = 1.5*max(sine_sign)+1.0  # greater than zero and definitely more than max by a proportional step
+    sine_embellisher = SineEmbellisher(HP.EMBED_SIZE,sine_effective_max)
+    # sine_effective_max = max(sine_sign)+1
+    # sine_embedder = SineEmbedder(HP.EMBED_SIZE,sine_effective_max)
   else:
-    sine_embedder = EmptySineEmbedder(HP.EMBED_SIZE)
+    sine_embellisher = EmptySineEmbellisher(HP.EMBED_SIZE)
+    # sine_embedder = EmptySineEmbedder(HP.EMBED_SIZE)
 
   for i in thax_sign:
     init_embeds[str(i)] = Embed(HP.EMBED_SIZE)
@@ -206,46 +195,31 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
       assert(arit == 3)
       deriv_mlps[str(rule)] = CatAndNonLinearMultiary(HP.EMBED_SIZE,2) # binary tree builder
 
-  if HP.DEEPER:
-    for idx,model in deriv_mlps.items():
-      deriv_mlps[idx] = PairUp(model,Deepifyer(HP.EMBED_SIZE))
+  eval_net = torch.nn.Sequential(
+     torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
+     torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2),
+     torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
+     torch.nn.Linear(HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2,1))
 
-  if HP.EVAL_LAYER == HP.EvalLayerKind_LINEAR:
-    eval_net = torch.nn.Sequential(
-         torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
-         torch.nn.Linear(HP.EMBED_SIZE,1))
-  else:
-    eval_net = torch.nn.Sequential(
-         torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
-         torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2),
-         torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
-         torch.nn.Linear(HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2,1))
-
-  if HP.DEEPER:
-    eval_net = torch.nn.Sequential(Deepifyer(HP.EMBED_SIZE),eval_net)
-
-  return torch.nn.ModuleList([init_embeds,sine_embedder,deriv_mlps,eval_net])
+  return torch.nn.ModuleList([init_embeds,sine_embellisher,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
-  return "_{}_{}_CatLay{}_EvalLay{}_BER{}_LayerNorm{}_Dropout{}{}{}.pt".format(
+  return "_{}_{}_BER{}_LayerNorm{}_Dropout{}{}.pt".format(
     HP.EMBED_SIZE,
     HP.NonLinKindName(HP.NONLIN),
-    HP.CatLayerKindName(HP.CAT_LAYER),
-    HP.EvalLayerKindName(HP.EVAL_LAYER),
     HP.BOTTLENECK_EXPANSION_RATIO,
-    HP.LayerNormName(HP.LAYER_NORM),
+    HP.LAYER_NORM,
     HP.DROPOUT,
-    "_Deeper" if HP.DEEPER else "",
     "_UseSine" if HP.USE_SINE else "")
 
 def name_learning_regime_suffix():
-  return "_o{}_lr{}{}_numproc{}_p{}_swapout{}_trr{}.txt".format(
+  return "_o{}_lr{}{}_numproc{}_p{}{}_trr{}.txt".format(
     HP.OptimizerName(HP.OPTIMIZER),
     HP.LEARN_RATE,
     "m{}".format(HP.MOMENTUM) if HP.OPTIMIZER == HP.Optimizer_SGD else "",
     HP.NUMPROCESSES,
     HP.POS_WEIGHT_EXTRA,
-    HP.SWAPOUT,
+    f"_swapout{HP.SWAPOUT}" if HP.SWAPOUT > 0.0 else "",
     HP.TestRiskRegimenName(HP.TRR))
 
 def name_raw_data_suffix():
@@ -271,7 +245,7 @@ def save_net(name,parts,parts_copies):
       param.requires_grad = False
 
   # from here on only use the updated copies
-  (init_embeds,sine_embedder,deriv_mlps,eval_net) = parts_copies
+  (init_embeds,sine_embellisher,deriv_mlps,eval_net) = parts_copies
   
   initEmbeds = {}
   for ax_name,embed in init_embeds.items():
@@ -287,12 +261,12 @@ def save_net(name,parts,parts_copies):
         sine_embedder : torch.nn.Module,'''
 
 bigpart2 ='''        eval_net : torch.nn.Module):
-      super(InfRecNet, self).__init__()
+      super().__init__()
 
       self.store = {}
       
       self.initEmbeds = initEmbeds
-      self.sine_embedder = sine_embedder'''
+      self.sine_embellisher = sine_embellisher'''
       
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
@@ -306,8 +280,7 @@ bigpart_no_longer_rec1 = '''
         embed = self.initEmbeds[name]
       else:
         embed = self.initEmbeds["0"]
-      sine = self.sine_embedder(features[-1])
-      self.store[id] = embed+sine'''
+      self.store[id] = self.sine_embellisher(features[-1],embed)'''
 
 bigpart_rec2='''
     @torch.jit.export
@@ -329,7 +302,7 @@ bigpart_avat = '''
 bigpart3 = '''
   module = InfRecNet(
     initEmbeds,
-    sine_embedder,'''
+    sine_embellisher,'''
 
 bigpart4 = '''    eval_net
     )
@@ -368,14 +341,14 @@ def create_saver(deriv_arits):
 class LearningModel(torch.nn.Module):
   def __init__(self,
       init_embeds : torch.nn.ModuleDict,
-      sine_embedder: torch.nn.Module,
+      sine_embellisher: torch.nn.Module,
       deriv_mlps : torch.nn.ModuleDict,
       eval_net : torch.nn.Module,
       init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg,save_logits = False):
     super(LearningModel,self).__init__()
   
     self.init_embeds = init_embeds
-    self.sine_embedder = sine_embedder
+    self.sine_embellisher = sine_embellisher
     self.deriv_mlps = deriv_mlps
     self.eval_net = eval_net
     
@@ -452,7 +425,7 @@ class LearningModel(torch.nn.Module):
         embed = self.init_embeds[str(thax)]()
     
       if HP.USE_SINE:
-        embed = embed + self.sine_embedder(sine)
+        embed = self.sine_embellisher(sine,embed)
       
       store[id] = embed
       if id in self.pos_vals or id in self.neg_vals:
@@ -485,7 +458,7 @@ class EvalMultiModel(torch.nn.Module):
     
     # properly wrap in ModuleList, so that eval from self propages all the way to pieces, and turns off dropout!
     
-    self.models = torch.nn.ModuleList([torch.nn.ModuleList((init_embeds,sine_embedder,deriv_mlps,eval_net)) for (init_embeds,sine_embedder,deriv_mlps,eval_net) in models])
+    self.models = torch.nn.ModuleList([torch.nn.ModuleList((init_embeds,sine_embellisher,deriv_mlps,eval_net)) for (init_embeds,sine_embellisher,deriv_mlps,eval_net) in models])
     
     self.init = init
     self.deriv = deriv
@@ -504,7 +477,7 @@ class EvalMultiModel(torch.nn.Module):
     
     contrib = torch.zeros(self.dim)
     
-    for i,(init_embeds,sine_embedder,deriv_mlps,eval_net) in enumerate(self.models):
+    for i,(init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models):
       val = eval_net(embeds[i])
     
       if val[0].item() >= 0.0:
@@ -528,7 +501,7 @@ class EvalMultiModel(torch.nn.Module):
       # print("init",id)
       
       str_thax = str(thax)
-      embeds = [ init_embeds[str_thax]() + sine_embedder(sine) for (init_embeds,sine_embedder,deriv_mlps,eval_net) in self.models]
+      embeds = [ sine_embellisher(sine,init_embeds[str_thax]()) for (init_embeds,sine_embellisher,deriv_mlps,eval_net) in self.models]
       
       store[id] = embeds
       
@@ -540,7 +513,7 @@ class EvalMultiModel(torch.nn.Module):
       
       par_embeds = [store[par] for par in self.pars[id]]
       str_rule = str(rule)
-      embeds = [ deriv_mlps[str_rule]([par_embed[i] for par_embed in par_embeds]) for i,(init_embeds,sine_embedder,deriv_mlps,eval_net) in enumerate(self.models)]
+      embeds = [ deriv_mlps[str_rule]([par_embed[i] for par_embed in par_embeds]) for i,(init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models)]
       
       store[id] = embeds
       
