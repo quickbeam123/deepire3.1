@@ -323,7 +323,7 @@ def eval_one(init,deriv,pars,pos_vals,negvals):
   
     sines = [s for p in pars[id] for s in reprs[p][1]]
   
-    if len(sines) > 2:
+    if len(sines) > 1:
       continue
   
     if rule == 666:
@@ -399,6 +399,6 @@ if __name__ == "__main__":
   for abs_repr, group in abs_repr_groups.items():
     print(abs_repr)
     for sines, (models_val,models_logit,pos_labels,neg_labels) in group.items():
-      print(sines,(models_val,models_logit,pos_labels,neg_labels) )
+      print(sines,(models_val,models_logit,pos_labels > 0.0,neg_labels > 0.0) )
     print()
  
