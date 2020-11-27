@@ -53,51 +53,15 @@ def NonLinKindName(val):
 
 NONLIN = NonLinKind_RELU
 
-CatLayerKind_SMALL = 1
-CatLayerKind_BIGGER = 2  # as used at AITP
-CatLayerKind_DOUBLE_NONLIN = 3  # seems to make more sense
+BOTTLENECK_EXPANSION_RATIO = 2 # is used halved for the eval layer (and sine layer?)
 
-BOTTLENECK_EXPANSION_RATIO = 2 # is used halved for the eval layer
-
-def CatLayerKindName(val):
-  if val == CatLayerKind_SMALL:
-    return "SMALL"
-  elif val == CatLayerKind_BIGGER:
-    return "BIGGER"
-  elif val == CatLayerKind_DOUBLE_NONLIN:
-    return "DOUBLE_NONLIN"
-
-CAT_LAYER = CatLayerKind_BIGGER
-
-EvalLayerKind_LINEAR = 1
-EvalLayerKind_NONLIN = 2
-
-def EvalLayerKindName(val):
-  if val == EvalLayerKind_LINEAR:
-    return "LINEAR"
-  elif val == EvalLayerKind_NONLIN:
-    return "NONLIN"
-
-EVAL_LAYER = EvalLayerKind_NONLIN
-
-LayerNorm_OFF = 1
-LayerNorm_ON = 2
-
-def LayerNormName(val):
-  if val == LayerNorm_OFF:
-    return "OFF"
-  elif val == LayerNorm_ON:
-    return "ON"
-
-LAYER_NORM = LayerNorm_ON
+LAYER_NORM = True
 
 DROPOUT = 0.1
 
-DEEPER = False
-
 # LEARNING PARAMS:
 
-NUMPROCESSES = 25
+NUMPROCESSES = 5
 
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2
