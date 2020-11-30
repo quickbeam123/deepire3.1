@@ -95,16 +95,20 @@ if __name__ == "__main__":
   # 1) conj, user_ax, theory_ax_kind in the leaves
   # 2) what inference leads to this in the tree nodes
   #
-  # To be called as in: ./compressor.py <folder> raw_log_data_*.pt
+  # To be called as in: ./compressor.py <folder> raw_log_data_*.pt data_sign.pt
   #
   # raw_log_data is compressed via abstraction (and a smoothed representation is created)
+  #
+  # data_sign.pt is updated (thax might be getting culled using MAX_USED_AXIOM_CNT and stored to <folder>)
   #
   # optionally, multiple problems can be grouped together (also using the compression code)
   #
   # finally, 80-20 split on the suffled list is performed and training_data.pt validation_data.pt are saved to folder
 
   prob_data_list = torch.load(sys.argv[2])
-  
+
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[3])
+
   # prob_data_list = prob_data_list[:10]
   
   print("Loaded raw prob_data_list of len:",len(prob_data_list))
@@ -113,13 +117,16 @@ if __name__ == "__main__":
   prob_data_list = [(metainfo,(init,deriv,pars,selec,good)) for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
   print("Done")
 
-  print("Smoothed representation")
+  thax_sign = set()
+
+  print("Smoothed representation and axiom bounding")
   for i, ((probname,probweight),(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
     pos_vals = defaultdict(float)
     neg_vals = defaultdict(float)
     tot_pos = 0.0
     tot_neg = 0.0
 
+    # Longer proofs have correspondly less weight per clause (we are fair on the per problem level)
     one_clause_weigth = probweight/len(selec)
 
     for id in selec:
@@ -130,9 +137,25 @@ if __name__ == "__main__":
         neg_vals[id] = one_clause_weigth
         tot_neg += one_clause_weigth
 
-    prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+    if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES:
+      new_init = []
+      for id, (thax,sine) in init:
+        if thax > HP.MAX_USED_AXIOM_CNT:
+          thax = 0
+        
+        thax_sign.add(thax)
+        
+        new_init.append((id,(thax,sine)))
+    else:
+      new_init = init
 
-  print("Done")
+    prob_data_list[i] = ((probname,probweight),(new_init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+
+
+  # thax_to_str can be kept; we will just know the names of axioms we don't use
+
+  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), "{}/data_sign.pt".format(sys.argv[1]))
+  print(f"Done; data_sign updated (and saved to {sys.argv[1]})")
 
   print("Compressing")
   for i, (metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
@@ -237,7 +260,6 @@ if __name__ == "__main__":
     filename = "{}/validation_index.pt".format(sys.argv[1])
     print("Saving validation part to",filename)
     torch.save(prob_data_list[spl:], filename)
-
   else:
     filename = "{}/training_data.pt".format(sys.argv[1])
     print("Saving training part to",filename)

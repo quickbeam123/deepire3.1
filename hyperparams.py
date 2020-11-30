@@ -28,7 +28,11 @@ def ThaxSourceName(val):
 
 THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
-AXCNT_CUTOFF = 255 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+# only take the first MAX_USED_AXIOM_CNT thax values to create embeddings for (all other will join 0)
+# this needs to be done before/during the compression phase
+# note that log-loading already introduced the axioms in the order of decreasing estimated usefulness
+# only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
+MAX_USED_AXIOM_CNT = 2000
 
 COMPRESSION_THRESHOLD = 10000
 

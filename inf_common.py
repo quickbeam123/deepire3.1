@@ -225,7 +225,7 @@ def name_learning_regime_suffix():
 def name_raw_data_suffix():
   return "_av{}_thax{}.pt".format(
     HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
-    HP.ThaxSourceName(HP.THAX_SOURCE)+(str(HP.AXCNT_CUTOFF) if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES else ""))
+    HP.ThaxSourceName(HP.THAX_SOURCE))
 
 bigpart1 = '''#!/usr/bin/env python3
 
@@ -719,7 +719,7 @@ def prepare_signature(prob_data_list):
 
   return (thax_sign,sine_sign,deriv_arits,axiom_hist)
 
-def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff):
+def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list):
   # (we didn't parse anything than 0 and -1 anyway:)
   assert(0 in thax_sign and (len(thax_sign) == 1 or len(thax_sign) == 2 and -1 in thax_sign))
   
@@ -729,13 +729,9 @@ def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff
   thax_to_str = {}
   good_ax_cnt = 0
   for i,(ax,num) in enumerate(sorted(axiom_hist.items(),key = lambda x : -x[1])):
-    print(i,ax,num)
-    
-    if num >= axcnt_cutoff: # change this constant to get something reasonable
-      good_ax_cnt += 1
-      ax_idx[ax] = good_ax_cnt
-      thax_to_str[good_ax_cnt] = ax
-      # print(ax,"is",good_ax_cnt)
+    good_ax_cnt += 1
+    ax_idx[ax] = good_ax_cnt
+    thax_to_str[good_ax_cnt] = ax
 
   for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
     new_init = []

@@ -68,7 +68,7 @@ if __name__ == "__main__":
     for i,line in enumerate(f):
       probname = line[:-1]
       tasks.append((i,probname))
-  pool = Pool(processes=30)
+  pool = Pool(processes=60)
   results = pool.map(load_one, tasks, chunksize = 100)
   pool.close()
   pool.join()
@@ -113,7 +113,7 @@ if __name__ == "__main__":
   thax_sign,sine_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
   if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES: # We want to use axiom names rather than theory_axiom ids:
-    thax_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list,axcnt_cutoff=HP.AXCNT_CUTOFF)
+    thax_sign,prob_data_list,thax_to_str = IC.axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list)
   else:
     thax_to_str = {}
 
