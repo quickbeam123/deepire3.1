@@ -304,10 +304,13 @@ def eval_one(init,deriv,pars,selec,isgood,axioms):
     repr = (abs_repr,[sine])
 
     # communication via st and sine
-    getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
-
-    logit = model(id) # calling forward
-    val = (logit >= 0.0) # interpreting the logit
+    if model:
+      getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
+      logit = model(id) # calling forward
+      val = (logit >= 0.0) # interpreting the logit
+    else:
+      logit = 0.0
+      val = None
     
     reprs[id] = repr
     
@@ -325,25 +328,30 @@ def eval_one(init,deriv,pars,selec,isgood,axioms):
     
     sines = [s for p in pars[id] for s in reprs[p][1]]
   
-    if len(sines) > 2:
+    if len(sines) > 1:
       continue
   
     if rule == 666:
       my_pars = pars[id]
       assert(len(my_pars) == 1)
-      getattr(model,"new_avat")(id,[-1,-1,-1,my_pars[0]])
+      if model:
+        getattr(model,"new_avat")(id,[-1,-1,-1,my_pars[0]])
       repr = "avat"
     else:
-      getattr(model,"new_deriv{}".format(rule))(id,[-1,-1,-1,-1,rule],pars[id])
+      if model:
+        getattr(model,"new_deriv{}".format(rule))(id,[-1,-1,-1,-1,rule],pars[id])
       repr = f"rule_{rule}"
 
-    logit = model(id) # calling forward
-    val = (logit >= 0.0) # interpreting the logit
+    if model:
+      logit = model(id) # calling forward
+      val = (logit >= 0.0) # interpreting the logit
+    else:
+      logit = 0.0
+      val = None
 
     abs_repr = f"{repr}({','.join([reprs[p][0] for p in pars[id]])})"
     
     repr = (abs_repr,sines)
-    
     reprs[id] = repr
 
     if abs_repr not in seen:
@@ -371,7 +379,10 @@ if __name__ == "__main__":
 
   prob_data_list = torch.load(sys.argv[1])
   
-  model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
+  if len(sys.argv) > 2:
+    model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
+  else:
+    model = None
   
   seen = set() # what the repr already printed?
   depths = {} # reprs -> its term depth
@@ -386,10 +397,17 @@ if __name__ == "__main__":
     eval_one(init,deriv,pars,selec,good,axioms)
 
   print()
-  for abs_repr, group in abs_repr_groups.items():
+  for abs_repr, group in sorted(abs_repr_groups.items(),key = lambda x : len(x[1])):
+    if len(group) == 1:
+      continue
     print(abs_repr)
-    for sines, (models_val,models_logit,pos_labels,neg_labels) in group.items():
-      print(sines,(models_val,models_logit,pos_labels,neg_labels) )
+    first = True
+    for sines, (models_val,models_logit,pos_labels,neg_labels) in sorted(group.items(),key=lambda x: -x[1][-2] / (x[1][-2] + x[1][-1]) ):
+      if first and pos_labels == 0:
+        print("Neg only")
+        break
+      first = False
+      print(sines,pos_labels / (pos_labels+neg_labels), pos_labels, neg_labels )
     print()
 
   '''
