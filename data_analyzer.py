@@ -26,6 +26,18 @@ if __name__ == "__main__":
   #
   # To be called as in: ./data_analyzer.py training_data.pt
 
+  train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
+  print("Loaded train data:",len(train_data_idx))
+  valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
+  print("Loaded valid data:",len(valid_data_idx))
+
+  data_idx = train_data_idx + valid_data_idx
+  
+  for size,piece_name in data_idx[-100:]:
+    print("{}/pieces/{}".format(sys.argv[1],piece_name))
+  
+  exit(0)
+
   prob_data_list = torch.load(sys.argv[1]) # [ probname, (init,deriv,pars,selec,good)]
   
   '''

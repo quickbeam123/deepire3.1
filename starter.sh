@@ -1,8 +1,28 @@
 #!/bin/bash
 
-ulimit -Sn 10000
+ulimit -Sn 1000
 
-./multi_inf_parallel.py smt4vamp_avOff/abstractOnlyBal smt4vamp_avOff/abstractOnlyBal/run128_p2.0_overfit_deep 2>&1
+./multi_inf_parallel_files.py mizar_strat1/ mizar_strat1/run2e mizar_strat1/run2d/check-epoch910.pt 2>&1 &
+./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run2e mizar_strat2/run2d/check-epoch772.pt 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run2d mizar_strat2/run2c/check-epoch500.pt 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat3/ mizar_strat3/run2b mizar_strat3/run2/check-epoch500.pt 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat3/ mizar_strat3/run2 2>&1
+
+# vzdy kdyz poustis znovu mizar_strat4 runs (run4x a run5), tak chces POS_WEIGHT_EXTRA = 3.0, at se to nemeni!
+# ./multi_inf_parallel_files.py mizar_strat4/loop2_recalibrated/ mizar_strat4/run5 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat3/ mizar_strat3/run1b mizar_strat3/run1/check-epoch193.pt 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run1 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat1/ mizar_strat1/run2_withSine 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat1/ mizar_strat1/run3_temp 2>&1
+
+# ./multi_inf_parallel.py smt4vamp_avOff/abstractOnlyBal smt4vamp_avOff/abstractOnlyBal/run128_p2.0_overfit_deep 2>&1
 
 # ./multi_inf_parallel.py mizar_strat1/ mizar_strat1/frun128_p5n1_do 2>&1
 
