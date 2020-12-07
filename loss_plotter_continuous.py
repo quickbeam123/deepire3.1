@@ -61,7 +61,7 @@ if __name__ == "__main__":
   print("Loss:",losses[idx],"posrate",posrates[idx],"negrate",negrates[idx])
 
   print()
-  for idx in times:
+  for idx,nominal_idx in enumerate(times):
     #if idx % 10 == 0:
-    print(idx,losses[idx],posrates[idx],negrates[idx])
+    print(nominal_idx,losses[idx],posrates[idx],negrates[idx])
 
