@@ -2,8 +2,20 @@
 
 ulimit -Sn 1000
 
-./multi_inf_parallel_files.py mizar_strat1/ mizar_strat1/run2e mizar_strat1/run2d/check-epoch910.pt 2>&1 &
-./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run2e mizar_strat2/run2d/check-epoch772.pt 2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax500/ mizar_strat1nacc/thax500/run2/ 2>&1 &
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax2000/ mizar_strat1nacc/thax2000/run3/ 2>&1
+
+./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2c/ mizar_strat1nacc/thax1000/run2b/check-epoch408.pt 2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2/ 2>&1
+
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1e/ mizar_strat1nacc/thax1000/run1d/check-epoch199.pt  2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1d/ mizar_strat1nacc/thax1000/run1c/check-epoch153.pt  2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1c/ mizar_strat1nacc/thax1000/run1b/check-epoch100.pt  2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1b/ mizar_strat1nacc/thax1000/run1/check-epoch50.pt  2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1/ 2>&1
+
+# ./multi_inf_parallel_files.py mizar_strat1/ mizar_strat1/run2e mizar_strat1/run2d/check-epoch910.pt 2>&1 &
+# ./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run2e mizar_strat2/run2d/check-epoch772.pt 2>&1
 
 # ./multi_inf_parallel_files.py mizar_strat2/ mizar_strat2/run2d mizar_strat2/run2c/check-epoch500.pt 2>&1
 

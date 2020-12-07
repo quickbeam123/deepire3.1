@@ -36,6 +36,7 @@ MAX_USED_AXIOM_CNT = 2000
 
 COMPRESSION_THRESHOLD = 10000
 
+# these are now ignored in multi_inf_parallel_files_continuous.py
 WHAT_IS_BIG = 12000
 WHAT_IS_HUGE = 120000
 
@@ -65,7 +66,7 @@ DROPOUT = 0.1
 
 # LEARNING PARAMS:
 
-NUMPROCESSES = 5
+NUMPROCESSES = 40
 
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2
@@ -76,7 +77,7 @@ def TestRiskRegimenName(val):
   elif val == TestRiskRegimen_OVERFIT:
     return "OVERFIT"
 
-TRR = TestRiskRegimen_VALIDATE
+TRR = TestRiskRegimen_OVERFIT
 
 SWAPOUT = 0.0
 LEARN_RATE = 0.0001
@@ -93,4 +94,4 @@ def OptimizerName(val):
 
 OPTIMIZER = Optimizer_ADAM
 
-POS_WEIGHT_EXTRA = 1.5
+POS_WEIGHT_EXTRA = 1.0

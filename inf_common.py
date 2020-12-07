@@ -17,6 +17,8 @@ torch.set_num_threads(1)
 
 from typing import Dict, List, Tuple, Optional
 
+import numpy as np
+
 try:
     from typing_extensions import Final
 except:
@@ -914,4 +916,45 @@ def plot_one(filename,times,train_losses,train_posrates,train_negrates,valid_los
   plt.legend(handles = [tl,vl,tpr,tnr,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
   
   plt.savefig(filename,dpi=250)
+  plt.close(fig)
+
+def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs):
+  losses = np.array(losses)
+  losses_devs = np.array(losses_devs)
+  posrates = np.array(posrates)
+  posrates_devs = np.array(posrates_devs)
+  negrates = np.array(negrates)
+  negrates_devs = np.array(negrates_devs)
+
+  fig, ax1 = plt.subplots()
+
+  color = 'tab:red'
+  ax1.set_xlabel('time (epochs)')
+  ax1.set_ylabel('loss', color=color)
+  vl, = ax1.plot(models_nums, losses, "-", linewidth = 1,label = "loss", color=color)
+  ax1.fill_between(models_nums, losses-losses_devs, losses+losses_devs, facecolor=color, alpha=0.5)
+  # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
+  ax1.tick_params(axis='y', labelcolor=color)
+
+  # ax1.set_ylim([0.45,0.6])
+
+  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+  color = 'tab:blue'
+  ax2.set_ylabel('pos/neg-rate', color=color)  # we already handled the x-label with ax1
+
+  vpr, = ax2.plot(models_nums, posrates, "-", label = "posrate", color = "blue")
+  ax2.fill_between(models_nums, posrates-posrates_devs, posrates+posrates_devs, facecolor="blue", alpha=0.5)
+  vnr, = ax2.plot(models_nums, negrates, "-", label = "negrate", color = "cyan")
+  ax2.fill_between(models_nums, negrates-negrates_devs, negrates+negrates_devs, facecolor="cyan", alpha=0.5)
+  ax2.tick_params(axis='y', labelcolor=color)
+
+  # For pos and neg rates, we know the meaningful range:
+  ax2.set_ylim([-0.05,1.05])
+
+  fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+  plt.legend(handles = [vl,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
+
+  plt.savefig(plotname,dpi=250)
   plt.close(fig)

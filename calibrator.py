@@ -75,6 +75,15 @@ def save_datapoint(datapoint,piece_name):
 def load_datapoint(filename):
   return torch.load(filename)
 
+def weighted_std_deviations(weighted_means,scaled_values,weights,weight_sum):
+  weights = np.expand_dims(weights,1)
+  
+  values = np.divide(scaled_values, weights, out=np.ones_like(scaled_values), where=weights!=0.0) # whenever the respective weight is 0.0, the result should be understood as 1.0
+  
+  squares = (values - weighted_means)**2
+  std_devs = np.sqrt(np.sum(weights*squares,axis=0) / weight_sum)
+  return std_devs
+
 def plot_datapoint(piece_name,isValidation,datapoint):
   print("Plotting datapoint for",piece_name)
 
@@ -126,21 +135,6 @@ def add_datapoint(datapoint,piece_name,isValidation):
   tot_negs.append(tot_neg)
   validations.append(isValidation)
 
-def weighted_std_deviations(weighted_means,scaled_values,weights,weight_sum):
-  # print(weighted_means)
-  # print(scaled_values)
-  # print(weight_sum)
-  # print(weights)
-  
-  weights = np.expand_dims(weights,1)
-  
-  values = np.divide(scaled_values, weights, out=np.ones_like(scaled_values), where=weights!=0.0) # whenever the respective weight is 0.0, the result should be understood as 1.0
-  
-  squares = (values - weighted_means)**2
-  std_devs = np.sqrt(np.sum(weights*squares,axis=0) / weight_sum)
-  # print(std_devs)
-  return std_devs
-
 def plot_summary_and_report_best(summary_kind,loss_sums,posOK_sums,negOK_sums,tot_poss,tot_negs):
   print("plot_summary_and_report_best for",summary_kind)
 
@@ -174,39 +168,8 @@ def plot_summary_and_report_best(summary_kind,loss_sums,posOK_sums,negOK_sums,to
   posrates_devs = weighted_std_deviations(posrates,posOK_sums,tot_poss,tot_pos)
   negrates_devs = weighted_std_deviations(negrates,negOK_sums,tot_negs,tot_neg)
 
-  fig, ax1 = plt.subplots()
-
-  color = 'tab:red'
-  ax1.set_xlabel('time (epochs)')
-  ax1.set_ylabel('loss', color=color)
-  vl, = ax1.plot(models_nums, losses, "-", linewidth = 1,label = "loss", color=color)
-  ax1.fill_between(models_nums, losses-losses_devs, losses+losses_devs, facecolor=color, alpha=0.5)
-  # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
-  ax1.tick_params(axis='y', labelcolor=color)
-
-  # ax1.set_ylim([0.45,0.6])
-
-  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-  color = 'tab:blue'
-  ax2.set_ylabel('pos/neg-rate', color=color)  # we already handled the x-label with ax1
-
-  vpr, = ax2.plot(models_nums, posrates, "-", label = "posrate", color = "blue")
-  ax2.fill_between(models_nums, posrates-posrates_devs, posrates+posrates_devs, facecolor="blue", alpha=0.5)
-  vnr, = ax2.plot(models_nums, negrates, "-", label = "negrate", color = "cyan")
-  ax2.fill_between(models_nums, negrates-negrates_devs, negrates+negrates_devs, facecolor="cyan", alpha=0.5)
-  ax2.tick_params(axis='y', labelcolor=color)
-
-  # For pos and neg rates, we know the meaningful range:
-  ax2.set_ylim([-0.05,1.05])
-
-  fig.tight_layout()  # otherwise the right y-label is slightly clipped
-
-  plt.legend(handles = [vl,vpr,vnr], loc='lower left') # loc = 'best' is rumored to be unpredictable
-
   plotname = "{}/plot_{}.png".format(sys.argv[3],summary_kind)
-  plt.savefig(plotname,dpi=250)
-  plt.close(fig)
+  IC.plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -307,7 +270,7 @@ if __name__ == "__main__":
   print("Starting timer",flush=True)
   start_time = time.time()
 
-  MAX_ACTIVE_TASKS = 10
+  MAX_ACTIVE_TASKS = 60
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()

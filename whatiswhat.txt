@@ -80,3 +80,13 @@ calibrator.py
 model_visualizer_(raw).py
 - load the (raw) dataset and a model
 - start looking at individual abstract clauses to see what the models says about them (and perhaps also compare this to the gold thingie...)
+
+multi_inf_parallel_files_continuous.py
+- since we now have calibrator, let's not stop to validate the checkpoints, simply keep updating the master_parts and report loss as the sliding average of the last "1000" versions.
+- also implement heat-up (linear) and cool-down (hyperbolic) home-made learning rate schedule
+- also plot standard deviations
+
+loss_plotter_continuous.py
+- loss plotter compatible with the output of the above
+- (also, optionally, we want to plot ATP eval stats of some selected models)
+
