@@ -60,10 +60,8 @@ if __name__ == "__main__":
   print("Best loss model",times[idx])
   print("Loss:",losses[idx],"posrate",posrates[idx],"negrate",negrates[idx])
 
-  '''
   print()
   for idx in times:
-    if idx % 10 == 0:
-      print(idx,losses[idx],posrates[idx],negrates[idx])
-  '''
+    #if idx % 10 == 0:
+    print(idx,losses[idx],posrates[idx],negrates[idx])
 

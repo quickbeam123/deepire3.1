@@ -90,3 +90,6 @@ loss_plotter_continuous.py
 - loss plotter compatible with the output of the above
 - (also, optionally, we want to plot ATP eval stats of some selected models)
 
+stats_plotter.py
+- collect ML and ATP stats about a bunch of models (indexed by their epoch, for instance)
+- and plot them agains one another
