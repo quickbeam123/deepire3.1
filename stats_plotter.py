@@ -27,8 +27,6 @@ if __name__ == "__main__":
       idx, solved, gain = line.split()
       atp_stats[int(idx)] = (float(solved), float(gain))
 
-    fig, ax1 = plt.subplots()
-
   indexes_ml = []
   losses = []
 
@@ -50,6 +48,7 @@ if __name__ == "__main__":
 
   min_solved = np.min(solveds)
 
+  fig, ax1 = plt.subplots()
   color = 'tab:red'
   ax1.set_xlabel('time (epochs)')
   ax1.set_ylabel('loss', color=color)
@@ -60,7 +59,7 @@ if __name__ == "__main__":
 
   ax1.tick_params(axis='y', labelcolor=color)
 
-  # ax1.set_ylim([0.45,0.6])
+  ax1.set_ylim([0.4,0.7])
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
