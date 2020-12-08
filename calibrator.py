@@ -168,6 +168,16 @@ def plot_summary_and_report_best(summary_kind,loss_sums,posOK_sums,negOK_sums,to
   posrates_devs = weighted_std_deviations(posrates,posOK_sums,tot_poss,tot_pos)
   negrates_devs = weighted_std_deviations(negrates,negOK_sums,tot_negs,tot_neg)
 
+  # fake a text output (of the already read data) as it would come out of multi_inf_parallel_files(continuous)
+  if summary_kind == "union":
+    with open("{}/as_if_run_{}".format(sys.argv[3],IC.name_learning_regime_suffix()), 'w') as f:
+      for idx,nominal_idx in enumerate(models_nums):
+        print(f"Epoch {nominal_idx} finished at <fake_time>",file=f)
+        print(f"Loss: {losses[idx]} +/- {losses_devs[idx]}",file=f)
+        print(f"Posrate: {posrates[idx]} +/- {posrates_devs[idx]}",file=f)
+        print(f"Negrate: {negrates[idx]} +/- {negrates_devs[idx]}",file=f)
+        print(file=f)
+
   plotname = "{}/plot_{}.png".format(sys.argv[3],summary_kind)
   IC.plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
 
@@ -206,12 +216,14 @@ if __name__ == "__main__":
   
   if True:
     # take the largest only later, i.e. by size, then name, decreasing
-    # feed_sequence.sort(key=lambda x: (x[2],x[0]), reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
-    # I though the above seems to be biased towards the easir proofs,
+    feed_sequence.sort(key=lambda x: (x[2],x[0]), reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
+    # I thought the above seems to be biased towards the easir proofs,
     # however, the better explanation was that the loss on training problems is generally better
-    # during eval (as opposed to during training) as dropout is obviously off
+    # during eval (as opposed to during training) as dropout is obviously turned off
     
-    feed_sequence.sort(reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
+    # even this is not perfect as running for longer on this eventually gives better posrates and worse negrates than initially
+    # my guess is that this order considers the larger (thus harder) problems (generally) earlier and only later does the more uniform rest
+    # feed_sequence.sort(reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
   else:
     pass # TODAY, we want to keep validation tasks in the back, so as to just validate!
 
@@ -263,6 +275,17 @@ if __name__ == "__main__":
       assert(found)
       # add to vectors
       add_datapoint(datapoint,piece_name,isValidation)
+
+  # do one plotting of union before you start looping:
+
+  plot_summary_and_report_best("union",
+    np.array(loss_sums),
+    np.array(posOK_sums),
+    np.array(negOK_sums),
+    np.array(tot_poss),
+    np.array(tot_negs))
+
+  # exit(0)
 
   # LOOPING
 
