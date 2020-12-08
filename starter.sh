@@ -5,7 +5,8 @@ ulimit -Sn 1000
 # ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax500/ mizar_strat1nacc/thax500/run2/ 2>&1 &
 # ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax2000/ mizar_strat1nacc/thax2000/run3/ 2>&1
 
-./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2c/ mizar_strat1nacc/thax1000/run2b/check-epoch408.pt 2>&1
+./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2d/ mizar_strat1nacc/thax1000/run2c/check-epoch433.pt 2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2c/ mizar_strat1nacc/thax1000/run2b/check-epoch408.pt 2>&1
 # ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run2/ 2>&1
 
 # ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax1000/ mizar_strat1nacc/thax1000/run1e/ mizar_strat1nacc/thax1000/run1d/check-epoch199.pt  2>&1
