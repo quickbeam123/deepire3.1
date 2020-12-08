@@ -87,11 +87,11 @@ def worker(q_in, q_out):
   log = sys.stdout
 
   while True:
-    (probname,parts_file,training) = q_in.get()
+    (probname,size,parts_file,training) = q_in.get()
     
     start_time = time.time()
     (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg) = eval_and_or_learn_on_one(probname,parts_file,training,log)
-    q_out.put((probname,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,parts_file,start_time,time.time()))
+    q_out.put((probname,size,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,parts_file,start_time,time.time()))
 
     libc.malloc_trim(ctypes.c_int(0))
 
@@ -207,25 +207,40 @@ if __name__ == "__main__":
 
   MAX_ACTIVE_TASKS = HP.NUMPROCESSES
   num_active_tasks = 0
+  
+  MAX_CAPACITY = 4000000 # a total size of 4653978 caused a crash on air05 with 300G RAM (maybe air04 would still be able to cope with 5M?)
+  assert HP.NUMPROCESSES * HP.COMPRESSION_THRESHOLD * 5 // 4 < MAX_CAPACITY
+  cur_allocated = 0
 
   while True:
     while num_active_tasks < MAX_ACTIVE_TASKS:
       num_active_tasks += 1
-      (size,probname) = random.choice(train_data_idx)
       
+      while True:
+        (size,probname) = random.choice(train_data_idx)
+        print("Picking",probname,"of size",size,end="...")
+        if cur_allocated + size > MAX_CAPACITY - (MAX_ACTIVE_TASKS-num_active_tasks) * (HP.COMPRESSION_THRESHOLD * 5 // 4):
+          print(f"too big! (cur_allocated is {cur_allocated} and still {(MAX_ACTIVE_TASKS-num_active_tasks)} tasks need to allocate)")
+        else:
+          print()
+          break
+      cur_allocated += size
+    
       print(time.time() - start_time,"starting job on problem",probname,"of size",size,flush=True)
       
       id += 1
       parts_file = "{}/parts_{}_{}.pt".format(SCRATCH,os.getpid(),id)
       torch.save(master_parts,parts_file)
       
-      q_in.put((probname,parts_file,True)) # training is always true in continuous! (TODO: factor out worker to inf_common!)
+      q_in.put((probname,size,parts_file,True)) # training is always true in continuous! (TODO: factor out worker to inf_common!)
       print(time.time() - start_time,"put finished",flush=True)
       print()
 
     print(time.time() - start_time,"about to call get")
 
-    (probname,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,parts_file,time_start,time_end) = q_out.get() # this may block
+    (probname,size,loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg,parts_file,time_start,time_end) = q_out.get() # this may block
+
+    cur_allocated -= size
 
     print(time.time() - start_time,"job finished at on problem",probname,"started",time_start-start_time,"finished",time_end-start_time,"took",time_end-time_start,flush=True)
     print("Of weight",tot_pos,tot_neg,tot_pos+tot_neg)
@@ -304,7 +319,7 @@ if __name__ == "__main__":
       
       IC.plot_with_devs("{}/plot.png".format(sys.argv[2]),times,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
       
-      if epoch >= 1000:
+      if epoch >= 500:
         break
 
   # a final "cleanup"
