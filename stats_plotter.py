@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
   min_solved = np.min(solveds)
 
-  fig, ax1 = plt.subplots()
+  fig, ax1 = plt.subplots(figsize=(15,10))
   color = 'tab:red'
   ax1.set_xlabel('time (epochs)')
   ax1.set_ylabel('loss', color=color)
