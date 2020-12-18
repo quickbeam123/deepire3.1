@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
   cnt = 0
   total = 0
-  for piece,num in active.items():
+  for piece,num in sorted(active.items(),key = lambda x : int(x[0][5:-3])):
     for _ in range(num):
       size = piece_sizes[piece]
       print(piece,size)
