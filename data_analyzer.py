@@ -26,6 +26,15 @@ if __name__ == "__main__":
   #
   # To be called as in: ./data_analyzer.py training_data.pt
 
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+
+  print(thax_sign)
+  print(sine_sign)
+  print(deriv_arits)
+  print(thax_to_str)
+
+  exit(0)
+
   train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_idx))
   valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))

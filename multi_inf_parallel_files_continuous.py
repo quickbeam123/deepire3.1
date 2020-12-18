@@ -159,10 +159,15 @@ if __name__ == "__main__":
   print(time.time() - start_time,"Initialization finished",flush=True)
 
   epoch = 0
+
+  MAX_EPOCH = 1000
   
   if len(sys.argv) >= 4:
     (epoch,master_parts,optimizer) = load_checkpoint(sys.argv[3])
     print("Loaded checkpoint",sys.argv[3],flush=True)
+  
+    if len(sys.argv) >= 5:
+      MAX_EPOCH = int(sys.argv[4])
   
     # update the learning rate according to hyperparams
     for param_group in optimizer.param_groups:
@@ -208,7 +213,15 @@ if __name__ == "__main__":
   MAX_ACTIVE_TASKS = HP.NUMPROCESSES
   num_active_tasks = 0
   
-  MAX_CAPACITY = 4000000 # a total size of 4653978 caused a crash on air05 with 300G RAM (maybe air04 would still be able to cope with 5M?)
+  # NOTE: on air05, 3050189 was swapping (observed with thax500, embeddings 256)
+  
+  # NOTE: on air05, 4000000 was still not enough for a good flow, but we got unstuck aumotmatically after a swapping slowdown
+  # (observed with thax2000, embeddings 256)
+   
+  # with 3500000 there was still a slowdown (thax2000, emb 256) probably cause by a swapping period?
+
+  MAX_CAPACITY = 2500000 # a total size of 4653978 caused a crash on air05 with 300G RAM (maybe air04 would still be able to cope with 5M?)
+  # note that that was a run on thax1000, i.e. 1000 embeddings of axioms (how much do these actually take up in comparison to the proper matrices?)
   assert HP.NUMPROCESSES * HP.COMPRESSION_THRESHOLD * 5 // 4 < MAX_CAPACITY
   cur_allocated = 0
 
@@ -319,7 +332,7 @@ if __name__ == "__main__":
       
       IC.plot_with_devs("{}/plot.png".format(sys.argv[2]),times,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
       
-      if epoch >= 500:
+      if epoch >= MAX_EPOCH:
         break
 
   # a final "cleanup"
