@@ -34,12 +34,11 @@ libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
 def eval_on_one(piece_name):
   data = torch.load("{}/pieces/{}".format(sys.argv[1],piece_name))
-  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
   
   with torch.no_grad():
-    model = IC.EvalMultiModel(models,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
+    model = IC.EvalMultiModel(models,data)
     model.eval()
-    (loss_sum,posOK_sum,negOK_sum) = model()
+    (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg) = model()
 
   return (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg)
 

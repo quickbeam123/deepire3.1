@@ -32,7 +32,7 @@ THAX_SOURCE = ThaxSource_AXIOM_NAMES
 # this needs to be done before/during the compression phase
 # note that log-loading already introduced the axioms in the order of decreasing estimated usefulness
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
-MAX_USED_AXIOM_CNT = 500
+MAX_USED_AXIOM_CNT = 2000
 
 COMPRESSION_THRESHOLD = 10000
 

@@ -15,7 +15,7 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-def compress_to_treshold(prob_data_list,treshold):
+def unionify_to_treshold(prob_data_list,treshold):
   
   size_hist = defaultdict(int)
   
@@ -24,10 +24,10 @@ def compress_to_treshold(prob_data_list,treshold):
   
   size_and_prob = []
   
-  for i,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+  for i,(probid,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     size = len(init)+len(deriv)
     
-    size_and_prob.append((size,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
+    size_and_prob.append((size,(probid,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
     
     size_hist[len(init)+len(deriv)] += 1
 
@@ -48,20 +48,21 @@ def compress_to_treshold(prob_data_list,treshold):
   print("Big",big)
   print("Small",small)
 
-  print("Compressing for treshold",treshold)
+  print("Unionifying for treshold",treshold)
   size_and_prob.sort(key=lambda x : x[0])
   
   compressed = []
   
   while size_and_prob:
-    size, my_rest = size_and_prob.pop()
+    size, rest = size_and_prob.pop()
+    my_rest = [rest] # keep adding these to a list; that's the unionification
 
     # print("Popped guy of size",size)
 
     while size < treshold and size_and_prob:
       # print("Looking for a friend")
       likes_sizes = int((treshold-size)*1.2)
-      idx_upper = bisect.bisect_right(size_and_prob,(likes_sizes, my_rest))
+      idx_upper = bisect.bisect_right(size_and_prob,(likes_sizes, rest))
 
       if not idx_upper:
         idx_upper = 1
@@ -75,17 +76,16 @@ def compress_to_treshold(prob_data_list,treshold):
 
       # print("friend_size",friend_size)
 
-      my_rest = IC.compress_prob_data([my_rest,friend_rest])
-      metainfo, (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = my_rest
-      size = len(init)+len(deriv)
+      size += friend_size
+      my_rest.append(friend_rest)
     
       # print("aftermerge",size)
 
-    print("Storing a guy of size",size,"weight",metainfo[-1])
-    compressed.append(my_rest)
+    print("Storing a guy of size",size,"containing",len(my_rest),"problems")
+    compressed.append((size,my_rest))
 
   print()
-  print("Compressed to",len(compressed),"merged problems")
+  print("Compressed to",len(compressed),"unionified meta-problems")
   return compressed
 
 if __name__ == "__main__":
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
   prob_data_list = torch.load(sys.argv[2])
 
-  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[3])
+  thax_sign,sine_sign,deriv_arits,thax_to_str,prob_name2id,prob_id2name = torch.load(sys.argv[3])
 
   # prob_data_list = prob_data_list[:10]
   
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     tot_pos = 0.0
     tot_neg = 0.0
 
-    # Longer proofs have correspondly less weight per clause (we are fair on the per problem level)
+    # Longer proofs have correspondingly less weight per clause (we are fair on the per problem level)
     one_clause_weigth = probweight/len(selec)
 
     for id in selec:
@@ -154,16 +154,17 @@ if __name__ == "__main__":
 
   # thax_to_str can be kept; we will just know the names of axioms we don't use
 
-  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), "{}/data_sign.pt".format(sys.argv[1]))
+  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str,prob_name2id,prob_id2name), "{}/data_sign.pt".format(sys.argv[1]))
   print(f"Done; data_sign updated (and saved to {sys.argv[1]})")
 
   print("Compressing")
   for i, (metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     print(metainfo,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
-    prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+    (out_probname,out_probweight),data = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+    prob_data_list[i] = metainfo,data # we ignore out_probname,out_probweight as it was just a union over the singleton
   print("Done")
 
-  print("Making smooth compression discreet again")
+  print("Making smooth compression discreet again and replacing probname with just an id")
   for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
     print()
   
@@ -208,9 +209,9 @@ if __name__ == "__main__":
 
     print(tot_pos,tot_neg)
 
-    prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+    prob_data_list[i] = (prob_name2id[probname],(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
 
-  if False: # Big compression now:
+  if False: # Big compression now: -- this is currently broken as we have just changed the format of metadata in prob_data_list
     print("Grand compression")
     (joint_probname,joint_probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = IC.compress_prob_data(prob_data_list)
 
@@ -228,7 +229,7 @@ if __name__ == "__main__":
     print("Done")
 
   if True:
-    prob_data_list = compress_to_treshold(prob_data_list,treshold = HP.COMPRESSION_THRESHOLD)
+    prob_data_list = unionify_to_treshold(prob_data_list,treshold = HP.COMPRESSION_THRESHOLD)
 
   SAVE_PIECES = True
 
@@ -241,10 +242,10 @@ if __name__ == "__main__":
       if exc.errno != errno.EEXIST:
           raise
       pass
-    for i,(metainfo,rest) in enumerate(prob_data_list):
+    for i,(size,rest) in enumerate(prob_data_list):
       piece_name = "piece{}.pt".format(i)
       torch.save(rest, "{}/{}".format(dir,piece_name))
-      prob_data_list[i] = (len(rest[0])+len(rest[1]),piece_name)
+      prob_data_list[i] = (size,piece_name)
     print("Done")
 
   random.shuffle(prob_data_list)

@@ -23,6 +23,8 @@ import sys,random,itertools,os,gc
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 # To release claimed memory back to os; Call:   libc.malloc_trim(ctypes.c_int(0))
 import ctypes
 import ctypes.util
@@ -41,9 +43,7 @@ def eval_and_or_learn_on_one(probname,parts_file,training,log):
   # print("eval_and_or_learn_on_one",probname,parts_file,training)
   # print("{}/pieces/{}".format(sys.argv[1],probname))
 
-  data = torch.load("{}/pieces/{}".format(sys.argv[1],probname))
-  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
-
+  data = torch.load("{}/pieces/{}".format(sys.argv[1],probname))  
   myparts = torch.load(parts_file)
   
   # not sure if there is any after load -- TODO: check if necessary
@@ -57,9 +57,9 @@ def eval_and_or_learn_on_one(probname,parts_file,training,log):
   # print("Datum of size",len(init)+len(deriv))
 
   if training:
-    model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
+    model = IC.LearningModel(*myparts,data)
     model.train()
-    (loss_sum,posOK_sum,negOK_sum) = model()
+    (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg) = model()
   
     loss_sum.backward()
     # put grad into actual tensor to be returned below (gradients don't go through the Queue)
@@ -75,9 +75,9 @@ def eval_and_or_learn_on_one(probname,parts_file,training,log):
   
   else:
     with torch.no_grad():
-      model = IC.LearningModel(*myparts,init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)
+      model = IC.LearningModel(*myparts,data)
       model.eval()
-      (loss_sum,posOK_sum,negOK_sum) = model()
+      (loss_sum,posOK_sum,negOK_sum,tot_pos,tot_neg) = model()
 
   del model # I am getting desperate!
 
@@ -174,8 +174,8 @@ if __name__ == "__main__":
         param_group['lr'] = HP.LEARN_RATE
     print("Set optimizer's learning rate to",HP.LEARN_RATE)  
   else:
-    thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
-    master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
+    thax_sign,sine_sign,deriv_arits,thax_to_str,prob_name2id,prob_id2name = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+    master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits,len(prob_name2id))
     model_name = "{}/initial{}".format(sys.argv[2],IC.name_initial_model_suffix())
     torch.save(master_parts,model_name)
     print("Created model parts and saved to",model_name,flush=True)
@@ -332,6 +332,13 @@ if __name__ == "__main__":
       
       IC.plot_with_devs("{}/plot.png".format(sys.argv[2]),times,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
       
+      # plotting the tweaks development
+      prob_tweaks = master_parts[0].getWeight()
+      fig, ax = plt.subplots()
+      ax.scatter(prob_tweaks[:,0],prob_tweaks[:,1],marker='+')
+      plt.savefig("{}/tweaks.png".format(sys.argv[2]),dpi=250)
+      plt.close(fig)
+
       if epoch >= MAX_EPOCH:
         break
 

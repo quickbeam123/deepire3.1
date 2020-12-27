@@ -85,12 +85,20 @@ if __name__ == "__main__":
   '''
   print(len(prob_data_list),"problems loaded!")
 
+  prob_name2id = {} 
+  prob_id2name = {}
   # assign weights to problems, especially if prob_easiness file has been provided
   times = []
   sizes = []
   easies = []
   for i,((probname,time_elapsed),probdata) in enumerate(prob_data_list):
     probname = logname_to_probname(probname)
+
+    if not probname in prob_name2id:
+      new_id = len(prob_name2id)
+      prob_name2id[probname] = new_id
+      prob_id2name[new_id] = probname
+
     easy = prob_easiness[probname] if probname in prob_easiness else 1
     
     probweight = 1.0/easy
@@ -122,10 +130,12 @@ if __name__ == "__main__":
   print("deriv_arits",deriv_arits)
   # print("axiom_hist",axiom_hist)
   print("thax_to_str",thax_to_str)
+  print("prob_name2id",prob_name2id)
+  print("prob_id2name",prob_id2name)
 
   filename = "{}/data_sign.pt".format(sys.argv[1])
   print("Saving singature to",filename)
-  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), filename)
+  torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str,prob_name2id,prob_id2name), filename)
   print()
 
   filename = "{}/raw_log_data{}".format(sys.argv[1],IC.name_raw_data_suffix())

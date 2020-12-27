@@ -46,6 +46,24 @@ class Embed(torch.nn.Module):
   def forward(self) -> Tensor:
     return self.weight
 
+class Tweak(torch.nn.Module):
+  weight: Tensor
+  
+  def __init__(self, length, dim : int):
+    super().__init__()
+    
+    self.weight = torch.nn.parameter.Parameter(torch.Tensor(length,dim))
+    self.reset_parameters()
+  
+  def reset_parameters(self):
+    torch.nn.init.constant_(self.weight, 0.0)
+
+  def forward(self) -> Tensor:
+    return self.weight
+
+  def getWeight(self) -> Tensor:
+    return self.weight.detach()
+
 class CatAndNonLinear(torch.nn.Module):
   def __init__(self, dim : int, arit: int):
     super().__init__()
@@ -60,7 +78,7 @@ class CatAndNonLinear(torch.nn.Module):
     else:
       self.nonlin = torch.nn.ReLU()
     
-    self.first = torch.nn.Linear(arit*dim,dim*HP.BOTTLENECK_EXPANSION_RATIO)
+    self.first = torch.nn.Linear(arit*dim+1,dim*HP.BOTTLENECK_EXPANSION_RATIO)
     self.second = torch.nn.Linear(dim*HP.BOTTLENECK_EXPANSION_RATIO,dim)
     
     if HP.LAYER_NORM:
@@ -68,10 +86,12 @@ class CatAndNonLinear(torch.nn.Module):
     else:
       self.epilog = torch.nn.Identity(dim)
 
-  def forward_impl(self,args : List[Tensor]) -> Tensor:
+  def forward_impl(self,args : List[Tensor],deriv_tweak: Tensor) -> Tensor:
     x = torch.cat(args)
     
     x = self.prolog(x)
+
+    x = torch.cat([x,torch.reshape(deriv_tweak,(1,))])
     
     x = self.first(x)
     x = self.nonlin(x)
@@ -86,32 +106,42 @@ class CatAndNonLinear(torch.nn.Module):
     return args[0]
 
 class CatAndNonLinearBinary(CatAndNonLinear):
-  def forward(self,args : List[Tensor]) -> Tensor:
-    return self.forward_impl(args)
+  def forward(self,args : List[Tensor], deriv_tweak: Tensor) -> Tensor:
+    return self.forward_impl(args,deriv_tweak)
 
 class CatAndNonLinearMultiary(CatAndNonLinear):
-  def forward(self,args : List[Tensor]) -> Tensor:
+  def forward(self,args : List[Tensor], deriv_tweak: Tensor) -> Tensor:
     i = 0
     while True:
       pair = args[i:i+2]
       
       if len(pair) == 2:
-        args.append(self.forward_impl(pair))
+        args.append(self.forward_impl(pair,deriv_tweak))
         i += 2
       else:
         assert(len(pair) == 1)
         return pair[0]
     return args[0] # this is bogus, just to make torch.jit.script happy
 
-class PairUp(torch.nn.Module): # we need this (instead of Sequential), because of "args : List[Tensor]" in forward (Sequential cannot be annotated for jit)
-  def __init__(self, m1 : torch.nn.Module, m2 : torch.nn.Module):
+class Evaluator(torch.nn.Module): # we need this (instead of Sequential), because of "args : List[Tensor]" in forward (Sequential cannot be annotated for jit)
+  def __init__(self):
     super().__init__()
-    self.m1 = m1
-    self.m2 = m2
+    
+    self.prolog = torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE)
+    self.first = torch.nn.Linear(HP.EMBED_SIZE+1,HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2)
+    self.nonlin = torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU()
+    self.second = torch.nn.Linear(HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2,1)
+     
+  def forward(self,arg : Tensor, eval_tweak: Tensor) -> Tensor:    
+    x = self.prolog(arg)
 
-  def forward(self,args : int) -> Tensor:
-    x = self.m1(args)
-    return self.m2(x)
+    x = torch.cat([x,torch.reshape(eval_tweak,(1,))])
+    
+    x = self.first(x)
+    x = self.nonlin(x)
+    x = self.second(x)
+
+    return x    
 
 class SineEmbedder(torch.nn.Module):
   effective_max: Final[int]
@@ -164,7 +194,9 @@ class EmptySineEmbellisher(torch.nn.Module):
   def forward(self,sine : int, embed : Tensor) -> Tensor:
     return embed # simply ignoring sine
 
-def get_initial_model(thax_sign,sine_sign,deriv_arits):
+def get_initial_model(thax_sign,sine_sign,deriv_arits,num_problems):
+  prob_tweaks = Tweak(num_problems,2)
+
   init_embeds = torch.nn.ModuleDict()
   if HP.SWAPOUT > 0.0:
     assert(-1 in thax_sign) # to have conjecture embedding
@@ -197,13 +229,9 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
       assert(arit == 3)
       deriv_mlps[str(rule)] = CatAndNonLinearMultiary(HP.EMBED_SIZE,2) # binary tree builder
 
-  eval_net = torch.nn.Sequential(
-     torch.nn.Dropout(HP.DROPOUT) if HP.DROPOUT > 0.0 else torch.nn.Identity(HP.EMBED_SIZE),
-     torch.nn.Linear(HP.EMBED_SIZE,HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2),
-     torch.nn.Tanh() if HP.NONLIN == HP.NonLinKind_TANH else torch.nn.ReLU(),
-     torch.nn.Linear(HP.EMBED_SIZE*HP.BOTTLENECK_EXPANSION_RATIO//2,1))
+  eval_net = Evaluator() # hyperparams passed in implicitly, since I am lazy     
 
-  return torch.nn.ModuleList([init_embeds,sine_embellisher,deriv_mlps,eval_net])
+  return torch.nn.ModuleList([prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net])
 
 def name_initial_model_suffix():
   return "_{}_{}_BER{}_LayerNorm{}_Dropout{}{}.pt".format(
@@ -247,7 +275,7 @@ def save_net(name,parts,parts_copies,thax_to_str):
       param.requires_grad = False
 
   # from here on only use the updated copies
-  (init_embeds,sine_embellisher,deriv_mlps,eval_net) = parts_copies
+  (prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net) = parts_copies
   
   initEmbeds = {}
   for thax,embed in init_embeds.items():
@@ -280,8 +308,8 @@ bigpart2 ='''        eval_net : torch.nn.Module):
       
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
-    def forward(self, id: int) -> float:
-      val = self.eval_net(self.store[id])
+    def forward(self, id: int, eval_tweak: Tensor) -> float:
+      val = self.eval_net(self.store[id],eval_tweak)
       return val[0].item()
 
     @torch.jit.export
@@ -294,19 +322,19 @@ bigpart_no_longer_rec1 = '''
 
 bigpart_rec2='''
     @torch.jit.export
-    def new_deriv{}(self, id: int, features : Tuple[int, int, int, int, int], pars : List[int]) -> None:
+    def new_deriv{}(self, id: int, features : Tuple[int, int, int, int, int], pars : List[int], deriv_tweak: Tensor) -> None:
       rule = features[-1]
       arit = len(pars)
       par_embeds = [self.store[par] for par in pars]
-      embed = self.deriv_{}(par_embeds)
+      embed = self.deriv_{}(par_embeds,deriv_tweak)
       self.store[id] = embed'''
 
 bigpart_avat = '''
     @torch.jit.export
-    def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> None:
+    def new_avat(self, id: int, features : Tuple[int, int, int, int], deriv_tweak: Tensor) -> None:
       par = features[-1]
       par_embeds = [self.store[par]]
-      embed = self.deriv_666(par_embeds) # special avatar code
+      embed = self.deriv_666(par_embeds,deriv_tweak) # special avatar code
       self.store[id] = embed'''
 
 bigpart3 = '''
@@ -350,48 +378,24 @@ def create_saver(deriv_arits):
 # Learning model class
 class LearningModel(torch.nn.Module):
   def __init__(self,
+      prob_tweaks : Tweak,
       init_embeds : torch.nn.ModuleDict,
       sine_embellisher: torch.nn.Module,
       deriv_mlps : torch.nn.ModuleDict,
       eval_net : torch.nn.Module,
-      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg,save_logits = False):
+      data : List):
     super(LearningModel,self).__init__()
   
+    self.prob_tweaks = prob_tweaks
     self.init_embeds = init_embeds
     self.sine_embellisher = sine_embellisher
     self.deriv_mlps = deriv_mlps
     self.eval_net = eval_net
     
-    self.init = init
-    self.deriv = deriv
-    self.pars = pars
-    self.pos_vals = pos_vals
-    self.neg_vals = neg_vals
-  
-    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0
-  
-    if save_logits:
-      self.logits = {}
-    else:
-      self.logits = None
-  
-    '''
-    print()
-    print("LearningModel")
-    print("HP.POS_BIAS",HP.POS_WEIGHT_EXTRA)
-    print("tot_pos",tot_pos)
-    print("tot_neg",tot_neg)
-  
-    print("pos_weight",pos_weight)
-    '''
-    
-    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
-  
-  def contribute(self, id: int, embed : Tensor):
-    val = self.eval_net(embed)
-    
-    if self.logits is not None:
-      self.logits[id] = val.item()
+    self.data = data
+        
+  def contribute(self, id: int, embed : Tensor, eval_tweak: Tensor):
+    val = self.eval_net(embed,eval_tweak)
     
     pos = self.pos_vals[id]
     neg = self.neg_vals[id]
@@ -402,93 +406,87 @@ class LearningModel(torch.nn.Module):
       self.negOK += neg
   
     contrib = self.criterion(val,torch.tensor([pos/(pos+neg)]))
-    
-    '''
-    print("contribute",id,pos,neg)
-    print("logit",val[0].item())
-    print("(val {})".format(1.0 if val[0].item() >= 0.0 else 0.0))
-    print("gold",pos/(pos+neg))
-    
-    print("self.posOK",self.posOK)
-    print("self.negOK",self.negOK)
-    
-    print("loss",(pos+neg),"*",contrib.item())
-    print(flush=True)
-    '''
-    
+        
     return (pos+neg)*contrib
 
-  # Construct the whole graph and return its loss
-  # TODO: can we keep the graph after an update?
-  def forward(self):
-    store : Dict[int, Tensor] = {} # each id stores its embedding
-    
+  def forward(self):    
     self.posOK = 0.0
     self.negOK = 0.0
     
-    loss = torch.zeros(1)
-    
-    for id, (thax,sine) in self.init:
-      if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
-        embed = self.init_embeds[str(0)]()
-      else:
-        embed = self.init_embeds[str(thax)]()
-    
-      if HP.USE_SINE:
-        embed = self.sine_embellisher(sine,embed)
-      
-      store[id] = embed
-      if id in self.pos_vals or id in self.neg_vals:
-        loss += self.contribute(id,embed)
-    
-    for id, rule in self.deriv:
-      # print("deriv",id)
-      
-      par_embeds = [store[par] for par in self.pars[id]]
-      
-      if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
-        arit = len(self.pars[id])
-        embed = self.deriv_mlps[str(arit)](par_embeds)
-      else:
-        embed = self.deriv_mlps[str(rule)](par_embeds)
-      
-      store[id] = embed
-      if id in self.pos_vals or id in self.neg_vals:
-        loss += self.contribute(id,embed)
+    accum_pos = 0.0
+    accum_neg = 0.0
 
-    return (loss,self.posOK,self.negOK)
+    loss = torch.zeros(1)
+
+    for probid,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in self.data:
+      # we flush store for each problem; the ids have a new meaning each time around this loop
+      store : Dict[int, Tensor] = {} # each id stores its embedding 
+
+      accum_pos += tot_pos
+      accum_neg += tot_neg
+
+      self.pos_vals = pos_vals
+      self.neg_vals = neg_vals
+
+      pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0      
+      self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
+      
+      my_tweak = self.prob_tweaks()[probid]
+
+      for id, (thax,sine) in init:
+        if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
+          embed = self.init_embeds[str(0)]()
+        else:
+          embed = self.init_embeds[str(thax)]()
+      
+        if HP.USE_SINE:
+          embed = self.sine_embellisher(sine,embed)
+        
+        store[id] = embed
+        if id in pos_vals or id in neg_vals:
+          loss += self.contribute(id,embed,my_tweak[0])
+      
+      for id, rule in deriv:
+        # print("deriv",id)
+        
+        par_embeds = [store[par] for par in pars[id]]
+        
+        if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
+          arit = len(self.pars[id])
+          embed = self.deriv_mlps[str(arit)](par_embeds,my_tweak[1])
+        else:
+          embed = self.deriv_mlps[str(rule)](par_embeds,my_tweak[1])
+        
+        store[id] = embed
+        if id in self.pos_vals or id in self.neg_vals:
+          loss += self.contribute(id,embed,my_tweak[0])
+
+    return (loss, self.posOK, self.negOK, accum_pos, accum_neg)
 
 # EvalMultiModel model class - an ugly copy-paste-modify of LearningModel above (try keeping in sync)
 class EvalMultiModel(torch.nn.Module):
-  def __init__(self,models,
-      init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg):
+  def __init__(self,models,data):
     super().__init__()
   
     self.dim = len(models)
     
     # properly wrap in ModuleList, so that eval from self propages all the way to pieces, and turns off dropout!
     
-    self.models = torch.nn.ModuleList([torch.nn.ModuleList((init_embeds,sine_embellisher,deriv_mlps,eval_net)) for (init_embeds,sine_embellisher,deriv_mlps,eval_net) in models])
+    self.models = torch.nn.ModuleList([torch.nn.ModuleList((prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net)) for (prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net) in models])
     
-    self.init = init
-    self.deriv = deriv
-    self.pars = pars
-    self.pos_vals = pos_vals
-    self.neg_vals = neg_vals
-  
-    pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0
+    self.data = data
     
-    self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
-  
-  def contribute(self, id: int, embeds : List[Tensor]):
+  def contribute(self, id: int, embeds : List[Tensor], probid: int):
     pos = self.pos_vals[id]
     neg = self.neg_vals[id]
     gold = torch.tensor([pos/(pos+neg)])
     
     contrib = torch.zeros(self.dim)
     
-    for i,(init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models):
-      val = eval_net(embeds[i])
+    for i,(prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models):
+
+      my_tweak = prob_tweaks()[probid]
+      val = eval_net(embeds[i],my_tweak[0])
     
       if val[0].item() >= 0.0:
         self.posOK[i] += pos
@@ -500,37 +498,49 @@ class EvalMultiModel(torch.nn.Module):
     return (pos+neg)*contrib
 
   # Construct the whole graph and return its loss
-  def forward(self):
-    store : Dict[int, List[Tensor]] = {} # each id stores its embeddings
-    
+  def forward(self):            
     loss = torch.zeros(self.dim)
     self.posOK = torch.zeros(self.dim)
     self.negOK = torch.zeros(self.dim)
+    accum_pos = 0.0
+    accum_neg = 0.0
     
-    for id, (thax,sine) in self.init:
-      # print("init",id)
-      
-      str_thax = str(thax)
-      embeds = [ sine_embellisher(sine,init_embeds[str_thax]()) for (init_embeds,sine_embellisher,deriv_mlps,eval_net) in self.models]
-      
-      store[id] = embeds
-      
-      if id in self.pos_vals or id in self.neg_vals:
-        loss += self.contribute(id,embeds)
-    
-    for id, rule in self.deriv:
-      # print("deriv",id)
-      
-      par_embeds = [store[par] for par in self.pars[id]]
-      str_rule = str(rule)
-      embeds = [ deriv_mlps[str_rule]([par_embed[i] for par_embed in par_embeds]) for i,(init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models)]
-      
-      store[id] = embeds
-      
-      if id in self.pos_vals or id in self.neg_vals:
-        loss += self.contribute(id,embeds)
+    for probid,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in self.data:
+      store : Dict[int, List[Tensor]] = {} # each id stores its embeddings
 
-    return (loss,self.posOK,self.negOK)
+      accum_pos += tot_pos
+      accum_neg += tot_neg
+
+      self.pos_vals = pos_vals
+      self.neg_vals = neg_vals
+
+      pos_weight = HP.POS_WEIGHT_EXTRA*tot_neg/tot_pos if tot_pos > 0.0 else 1.0
+      self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
+
+      for id, (thax,sine) in init:
+        # print("init",id)
+        
+        str_thax = str(thax)
+        embeds = [ sine_embellisher(sine,init_embeds[str_thax]()) for (prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net) in self.models]
+        
+        store[id] = embeds
+        
+        if id in self.pos_vals or id in self.neg_vals:
+          loss += self.contribute(id,embeds,probid)
+      
+      for id, rule in deriv:
+        # print("deriv",id)
+        
+        par_embeds = [store[par] for par in pars[id]]
+        str_rule = str(rule)
+        embeds = [ deriv_mlps[str_rule]([par_embed[i] for par_embed in par_embeds],prob_tweaks()[probid,1]) for i,(prob_tweaks,init_embeds,sine_embellisher,deriv_mlps,eval_net) in enumerate(self.models)]
+        
+        store[id] = embeds
+        
+        if id in self.pos_vals or id in self.neg_vals:
+          loss += self.contribute(id,embeds,probid)
+
+    return (loss,self.posOK,self.negOK,accum_pos,accum_neg)
 
 def get_ancestors(seed,pars,**kwargs):
   ancestors = kwargs.get("known_ancestors",set())

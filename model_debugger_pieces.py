@@ -27,8 +27,11 @@ import ctypes.util
 libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
 def contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_logit):  
+  # hardcoding tweaks to zeros (could be a param of this script instead)
+  eval_tweak = torch.zeros(())
+
   # print(id,thax,val,id in selec,id in good)
-  logit = model(id) # calling forward
+  logit = model(id,eval_tweak) # calling forward
   # print(id,thax,logit,id in selec,id in good)
   val = (logit >= 0.0) # interpreting the logit
 
@@ -53,16 +56,22 @@ def contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_
   return posOK,negOK,min_pos_logit
 
 def eval_one(task):
+  # hardcoding tweaks to zeros (could be a param of this script instead)
+  deriv_tweak = torch.zeros(())
+
   (size,piece_name) = task
   print("Loading",piece_name,"of size",size)
 
   data = torch.load("{}/pieces/{}".format(sys.argv[1],piece_name))
-  (init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) = data
 
   model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
+  # we could also refresh the model each time around the loop below, but it's not critical, ...
+  # ... each call to init, deriv, avat overwrites the stored embeddings, and we always replay topologically / chronologically
 
   posOK = 0.0
   negOK = 0.0
+  accum_pos = 0.0
+  accum_neg = 0.0
   
   # keep collecting the logis values at which we would need to cut to get this clause classified as positive
   pos_cuts = defaultdict(int)
@@ -70,38 +79,38 @@ def eval_one(task):
   
   min_pos_logit = sys.float_info.max
 
-  for id, (thax,sine) in init:
-    if thax == -1:
-      st = "-1"
-    elif thax in thax_to_str:
-      st = thax_to_str[thax]
-    else:
-      assert thax == 0
-      st = str(thax)
+  for probid,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg) in data: 
+    accum_pos += tot_pos
+    accum_neg += tot_neg
 
-    # communication via st and sine
-    getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
+    for id, (thax,sine) in init:
+      if thax == -1:
+        st = "-1"
+      elif thax in thax_to_str:
+        st = thax_to_str[thax]
+      else:
+        assert thax == 0
+        st = str(thax)
 
-    posOK,negOK,min_pos_logit = contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_logit)
+      # communication via st and sine
+      getattr(model,"new_init")(id,[-1,-1,-1,-1,-1,sine],st)
 
-  for id, (rule) in deriv:
-    if rule == 666:
-      my_pars = pars[id]
-      assert(len(my_pars) == 1)
-      getattr(model,"new_avat")(id,[-1,-1,-1,my_pars[0]])
-    else:
-      getattr(model,"new_deriv{}".format(rule))(id,[-1,-1,-1,-1,rule],pars[id])
+      posOK,negOK,min_pos_logit = contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_logit)
 
-    posOK,negOK,min_pos_logit = contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_logit)
+    for id, (rule) in deriv:
+      if rule == 666:
+        my_pars = pars[id]
+        assert(len(my_pars) == 1)
+        getattr(model,"new_avat")(id,[-1,-1,-1,my_pars[0]],deriv_tweak)
+      else:
+        getattr(model,"new_deriv{}".format(rule))(id,[-1,-1,-1,-1,rule],pars[id],deriv_tweak)
+
+      posOK,negOK,min_pos_logit = contribute(id,model,pos_vals,neg_vals,posOK,negOK,pos_cuts,neg_cuts,min_pos_logit)
 
   del model
   libc.malloc_trim(ctypes.c_int(0))
 
-  print("posrate",posOK / tot_pos if tot_pos > 0 else 1.0,"from",posOK,tot_pos)
-  print("negrate",negOK / tot_neg if tot_neg > 0 else 1.0,"from",negOK,tot_neg)
-  print("tot weight",tot_pos+tot_neg)
-
-  return (piece_name,posOK,tot_pos,negOK,tot_neg,pos_cuts,neg_cuts,min_pos_logit)
+  return (piece_name,posOK,accum_pos,negOK,accum_neg,pos_cuts,neg_cuts,min_pos_logit)
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
