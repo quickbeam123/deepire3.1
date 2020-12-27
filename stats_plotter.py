@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
   ax1.tick_params(axis='y', labelcolor=color)
 
-  ax1.set_ylim([0.4,0.7])
+  ax1.set_ylim([0.35,0.6])
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
