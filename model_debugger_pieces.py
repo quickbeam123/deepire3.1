@@ -15,6 +15,7 @@ from collections import ChainMap
 import sys,random,itertools
 
 import numpy as np
+import math
 
 from multiprocessing import Pool
 
@@ -115,7 +116,14 @@ if __name__ == "__main__":
   # 
   # <folder1> to contain "training_data.pt" and "validation_data.pt"
 
-  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+  # thax_sign,sine_sign,deriv_arits,thax_to_str 
+  # thax_sign,sine_sign,deriv_arits,thax_to_str,prob_name2id,prob_id2name (added in gsd)
+  signature = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+  thax_sign = signature[0]
+  sine_sign = signature[1]
+  deriv_arits = signature[2]
+  thax_to_str = signature[3]
+  
   print("Loaded data signature")  
   train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_idx))
@@ -126,12 +134,12 @@ if __name__ == "__main__":
   
   '''
   results = []
-  for task in data_idx[:10]:
+  for task in data_idx[:3]:
     res = eval_one(task)
     print("Done",task[0])
     results.append(res)
   '''
-  pool = Pool(processes=50)
+  pool = Pool(processes=5)
   results = pool.map(eval_one, data_idx, chunksize = 5)
   pool.close()
   pool.join()
@@ -185,9 +193,21 @@ if __name__ == "__main__":
   neg_vals = []
   cur_prob = 0
   
+  # for the ROC curve (thanks to Filip)
+  logit_threshold_vals = []
+  logit_threshold_idxs = []
+  
   prob_logits = []
   prob_vals = []
+  last_logit = None
   for logit in sorted(set(pos_cuts_fin) | set(neg_cuts_fin)):
+    if last_logit:
+      c = math.ceil(last_logit)
+      if logit > c:
+        logit_threshold_vals.append(c)
+        logit_threshold_idxs.append(len(logits))
+    last_logit = logit
+  
     logits.append(logit)
     cur_pos -= pos_cuts_fin[logit]
     pos_vals.append(cur_pos)
@@ -239,4 +259,21 @@ if __name__ == "__main__":
   print("Saved final plot to",filename)
   plt.close(fig)
 
+  # the ROC curve - thanks to Filip. Actually, in my curve, 0 and 1 and flipped, I think
+  fig, ax = plt.subplots(figsize=(8, 8))
+  ax.set_xlabel('False Positive Rate')
+  ax.set_ylabel('True Positive Rate')
 
+  Xs = 1.0 - np.array(neg_vals)/neg_vals[-1]
+  Ys = 1.0 - np.array(pos_vals)/pos_vals[-1]
+
+  line, = ax.plot([0.0,1.0],[0.0,1.0], "-", linewidth = 1, color = "gray")
+  line, = ax.plot(Xs,Ys, "-")
+
+  for val,idx in zip(logit_threshold_vals,logit_threshold_idxs):
+    ax.annotate(str(val),xy=(Xs[idx],Ys[idx]))
+
+  filename = "ROC_curve_{}.png".format(sys.argv[2].split("/")[-1])
+  plt.savefig(filename,dpi=250)
+  print("Saved ROC curve to",filename)
+  plt.close(fig)
