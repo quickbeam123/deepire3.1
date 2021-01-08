@@ -954,7 +954,7 @@ def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_dev
   # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
-  # ax1.set_ylim([0.45,0.6])
+  ax1.set_ylim([0.0,0.6])
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 

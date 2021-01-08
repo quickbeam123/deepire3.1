@@ -8,7 +8,7 @@ import inf_common as IC
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-  # models stat files are simple black spepareted line by line files
+  # models stat files are simple black separeted line by line files
   # currently reading:
   # arg1 = "ml_stats.txt": model_idx loss posrate negrate
   # arg2 = "atp_stats.txt": model_idx absolute_num_solved gain_over_the_training_set (aka ATP validation)
