@@ -237,7 +237,7 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import sys,random
 
-def save_net(name,parts,parts_copies):
+def save_net(name,parts,parts_copies,thax_to_str):
   for part,part_copy in zip(parts,parts_copies):
     part_copy.load_state_dict(part.state_dict())
     
@@ -250,8 +250,16 @@ def save_net(name,parts,parts_copies):
   (init_embeds,sine_embellisher,deriv_mlps,eval_net) = parts_copies
   
   initEmbeds = {}
-  for ax_name,embed in init_embeds.items():
-    initEmbeds[ax_name] = embed.weight
+  for thax,embed in init_embeds.items():
+    thax = int(thax)
+    if thax == -1:
+      st = "-1"
+    elif thax in thax_to_str:
+      st = thax_to_str[thax]
+    else:
+      assert thax == 0, thax
+      st = str(thax)
+    initEmbeds[st] = embed.weight
   
   # This is, how we envision inference:
   class InfRecNet(torch.nn.Module):

@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
   print("Loaded model from",sys.argv[2])
 
-  IS.save_net(sys.argv[3],parts,parts_copies)
+  IS.save_net(sys.argv[3],parts,parts_copies,thax_to_str)
 
   print("Exported to",sys.argv[3])
 
