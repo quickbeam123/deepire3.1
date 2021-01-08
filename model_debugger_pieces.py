@@ -62,9 +62,7 @@ def eval_one(task):
   model = torch.jit.load(sys.argv[2]) # always load a new model -- it contains the lookup tables for the particular model
 
   posOK = 0.0
-  posTot = 0.0
   negOK = 0.0
-  negTot = 0.0
   
   # keep collecting the logis values at which we would need to cut to get this clause classified as positive
   pos_cuts = defaultdict(int)
@@ -98,6 +96,10 @@ def eval_one(task):
 
   del model
   libc.malloc_trim(ctypes.c_int(0))
+
+  print("posrate",posOK / tot_pos if tot_pos > 0 else 1.0,"from",posOK,tot_pos)
+  print("negrate",negOK / tot_neg if tot_neg > 0 else 1.0,"from",negOK,tot_neg)
+  print("tot weight",tot_pos+tot_neg)
 
   return (piece_name,posOK,tot_pos,negOK,tot_neg,pos_cuts,neg_cuts,min_pos_logit)
 
@@ -149,11 +151,21 @@ if __name__ == "__main__":
   posrate_sum = 0.0
   negrate_sum = 0.0
   
+  posOK_sum = 0.0
+  posTot_sum = 0.0
+  negOK_sum = 0.0
+  negTot_sum = 0.0
+  
   per_prob = defaultdict(list)
   pos_cuts_fin = defaultdict(int)
   neg_cuts_fin = defaultdict(int)
-
+  
   for (probname,posOK,posTot,negOK,negTot,pos_cuts,neg_cuts,min_pos_logit) in results:
+    
+    posOK_sum += posOK
+    negOK_sum += negOK
+    posTot_sum += posTot
+    negTot_sum += negTot
     
     posrate = posOK / posTot if posTot > 0 else 1.0
     negrate = negOK / negTot if negTot > 0 else 1.0
@@ -175,8 +187,12 @@ if __name__ == "__main__":
 
   print()
   print("Total probs:",cnt)
-  print("Final posrate:",posrate_sum/cnt)
-  print("Final negrate:",negrate_sum/cnt)
+  print("Final (average) posrate:",posrate_sum/cnt)
+  print("Final (average) negrate:",negrate_sum/cnt)
+
+  print()
+  print("Aggreg posRate",posOK_sum/posTot_sum)
+  print("Aggreg negRate",negOK_sum/negTot_sum)
 
   print()
   print("per_prob pos example logit minima")
