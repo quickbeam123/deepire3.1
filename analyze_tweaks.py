@@ -56,10 +56,19 @@ if __name__ == "__main__":
     with open(sys.argv[3], 'rb') as f:
       subset = pickle.load(f, encoding="latin1") # loading a python2 pickle
       print("Loaded a subset filter of size",len(subset))
-  
+
+  if True:
+    X = np.array(prob_tweaks)
+    fig, ax = plt.subplots(figsize=(15,10))
+    ax.plot(X[:,0],X[:,1],marker='.',markersize=1, color = "gray", linestyle="None",alpha=0.3)
+    plt.savefig("tweaks_plain.png",dpi=250)
+    plt.close(fig)
+    print("Plotted into tweaks_plain.png")
+    exit(0)
+
   X = np.array(prob_tweaks)
   fig, ax = plt.subplots(figsize=(15,10))
-  
+
   if subset is None:
     clustering = KMeans(n_clusters=10, random_state=0).fit(X)
     # clustering = AffinityPropagation(random_state=5).fit(X) # does not converge
