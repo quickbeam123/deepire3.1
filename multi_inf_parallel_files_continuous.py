@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
   epoch = 0
 
-  MAX_EPOCH = 1000
+  MAX_EPOCH = 500
   
   if len(sys.argv) >= 4:
     (epoch,master_parts,optimizer) = load_checkpoint(sys.argv[3])
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
   id = 0 # id synchronizes writes to the worker pipe
 
-  SAMPLES_PER_EPOCH = 1000
+  SAMPLES_PER_EPOCH = 350
 
   t = epoch*SAMPLES_PER_EPOCH # time synchronizes writes to master_parts and the stasts
 
