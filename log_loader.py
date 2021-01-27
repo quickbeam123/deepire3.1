@@ -68,7 +68,7 @@ if __name__ == "__main__":
     for i,line in enumerate(f):
       probname = line[:-1]
       tasks.append((i,probname))
-  pool = Pool(processes=60)
+  pool = Pool(processes=5)
   results = pool.map(load_one, tasks, chunksize = 100)
   pool.close()
   pool.join()

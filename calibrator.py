@@ -217,7 +217,7 @@ if __name__ == "__main__":
   if True:
     # take the largest only later, i.e. by size, then name, decreasing
     feed_sequence.sort(key=lambda x: (x[2],x[0]), reverse=True) # this is not a numeric sort, but that's OK. We just want to interleave training and validation examples
-    # I thought the above seems to be biased towards the easir proofs,
+    # I thought the above seems to be biased towards the easier proofs,
     # however, the better explanation was that the loss on training problems is generally better
     # during eval (as opposed to during training) as dropout is obviously turned off
     
@@ -240,6 +240,8 @@ if __name__ == "__main__":
   models = []
   models_nums = []
   for num,filename in checkpoint_names:
+    if num % 10 != 0:
+      continue
 
     # print(num,filename)
     (epoch,model,optimizer) = load_checkpoint(f"{sys.argv[2]}/{filename}")
@@ -248,7 +250,7 @@ if __name__ == "__main__":
     models.append(model)
     models_nums.append(num)
 
-  print(f"Loaded {len(models)} models",flush=True)
+  print(f"Loaded {len(models)} models (others skipped)",flush=True)
 
   # LOAD DATAPOINTS if ALREADY HAVING SOME
 
