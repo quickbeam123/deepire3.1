@@ -130,7 +130,7 @@ if __name__ == "__main__":
   print("Loaded valid data:",len(valid_data_idx))
   
   # so that the largest ones start evaluating first
-  valid_data_idx.sort(reverse=True)
+  valid_data_idx.sort() # we pop (from the end), so no need for reverse=True!
   
   # valid_data_idx = valid_data_idx[:10] # just to debug
   
