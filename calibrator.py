@@ -169,17 +169,39 @@ def plot_summary_and_report_best(summary_kind,loss_sums,posOK_sums,negOK_sums,to
   negrates_devs = weighted_std_deviations(negrates,negOK_sums,tot_negs,tot_neg)
 
   # fake a text output (of the already read data) as it would come out of multi_inf_parallel_files(continuous)
-  if summary_kind == "union":
-    with open("{}/as_if_run_{}".format(sys.argv[3],IC.name_learning_regime_suffix()), 'w') as f:
-      for idx,nominal_idx in enumerate(models_nums):
-        print(f"Epoch {nominal_idx} finished at <fake_time>",file=f)
-        print(f"Loss: {losses[idx]} +/- {losses_devs[idx]}",file=f)
-        print(f"Posrate: {posrates[idx]} +/- {posrates_devs[idx]}",file=f)
-        print(f"Negrate: {negrates[idx]} +/- {negrates_devs[idx]}",file=f)
-        print(file=f)
+  with open("{}/as_if_run_{}_{}".format(sys.argv[3],summary_kind,IC.name_learning_regime_suffix()), 'w') as f:
+    for idx,nominal_idx in enumerate(models_nums):
+      print(f"Epoch {nominal_idx} finished at <fake_time>",file=f)
+      print(f"Loss: {losses[idx]} +/- {losses_devs[idx]}",file=f)
+      print(f"Posrate: {posrates[idx]} +/- {posrates_devs[idx]}",file=f)
+      print(f"Negrate: {negrates[idx]} +/- {negrates_devs[idx]}",file=f)
+      print(file=f)
 
   plotname = "{}/plot_{}.png".format(sys.argv[3],summary_kind)
-  IC.plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs)
+  IC.plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs,clip=[0.4,1.0])
+
+def plot_all_three():
+  plot_summary_and_report_best("union",
+    np.array(loss_sums),
+    np.array(posOK_sums),
+    np.array(negOK_sums),
+    np.array(tot_poss),
+    np.array(tot_negs))
+
+  mask_validation = np.array(validations)
+
+  plot_summary_and_report_best("validation",
+    np.array(loss_sums)[mask_validation],
+    np.array(posOK_sums)[mask_validation],
+    np.array(negOK_sums)[mask_validation],
+    np.array(tot_poss)[mask_validation],
+    np.array(tot_negs)[mask_validation])
+  plot_summary_and_report_best("training",
+    np.array(loss_sums)[~mask_validation],
+    np.array(posOK_sums)[~mask_validation],
+    np.array(negOK_sums)[~mask_validation],
+    np.array(tot_poss)[~mask_validation],
+    np.array(tot_negs)[~mask_validation])
 
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
@@ -278,14 +300,8 @@ if __name__ == "__main__":
       # add to vectors
       add_datapoint(datapoint,piece_name,isValidation)
 
-  # do one plotting of union before you start looping:
-
-  plot_summary_and_report_best("union",
-    np.array(loss_sums),
-    np.array(posOK_sums),
-    np.array(negOK_sums),
-    np.array(tot_poss),
-    np.array(tot_negs))
+  # do one plotting of union/train/validate before you start looping:
+  plot_all_three()
 
   # exit(0)
 
@@ -295,7 +311,7 @@ if __name__ == "__main__":
   print("Starting timer",flush=True)
   start_time = time.time()
 
-  MAX_ACTIVE_TASKS = 60
+  MAX_ACTIVE_TASKS = 10
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()
@@ -335,28 +351,7 @@ if __name__ == "__main__":
     add_datapoint(datapoint,piece_name,isValidation)
 
     # now refresh the summary plots (and report bests)
-    
-    plot_summary_and_report_best("union",
-      np.array(loss_sums),
-      np.array(posOK_sums),
-      np.array(negOK_sums),
-      np.array(tot_poss),
-      np.array(tot_negs))
-
-    mask_validation = np.array(validations)
-
-    plot_summary_and_report_best("validation",
-      np.array(loss_sums)[mask_validation],
-      np.array(posOK_sums)[mask_validation],
-      np.array(negOK_sums)[mask_validation],
-      np.array(tot_poss)[mask_validation],
-      np.array(tot_negs)[mask_validation])
-    plot_summary_and_report_best("training",
-      np.array(loss_sums)[~mask_validation],
-      np.array(posOK_sums)[~mask_validation],
-      np.array(negOK_sums)[~mask_validation],
-      np.array(tot_poss)[~mask_validation],
-      np.array(tot_negs)[~mask_validation])
+    plot_all_three()
 
   # a final "cleanup"
   for p in my_processes:
