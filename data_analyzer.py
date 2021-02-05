@@ -26,14 +26,12 @@ if __name__ == "__main__":
 
   thax_sign1,sine_sign1,deriv_arits1,thax_to_str1 = torch.load("{}/data_sign.pt".format(sys.argv[1]))
 
-  strs1 = {thax_to_str1[thax] for thax in thax_sign1 if thax in thax_to_str1 }
+  print(thax_sign1)
+  print(sine_sign1)
+  print(deriv_arits1)
+  print(thax_to_str1)
   
-  strs1_list = [thax_to_str1[thax] for thax in thax_sign1 if thax in thax_to_str1 ]
-  
-  # print(thax_sign)
-  # print(sine_sign)
-  # print(deriv_arits)
-  # print(thax_to_str)
+  exit(0)
 
   thax_sign2,sine_sign2,deriv_arits2,thax_to_str2 = torch.load("{}/data_sign.pt".format(sys.argv[2]))
 

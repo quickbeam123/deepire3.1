@@ -7,7 +7,6 @@ import torch
 # multi_inf_paralels_config:
 
 SCRATCH = "/scratch/sudamar2/"
-SAMPLES_PER_EPOCH = 350
 MAX_EPOCH = 500
 
 # DATA PREPARATION PARAMS:
@@ -32,7 +31,7 @@ def ThaxSourceName(val):
   elif val == ThaxSource_AXIOM_NAMES:
     return "AxiomNames"
 
-THAX_SOURCE = ThaxSource_AXIOM_NAMES
+THAX_SOURCE = ThaxSource_THAX_FEATURE
 
 # only take the first MAX_USED_AXIOM_CNT thax values to create embeddings for (all other will join 0)
 # this needs to be done before/during the compression phase
@@ -40,7 +39,7 @@ THAX_SOURCE = ThaxSource_AXIOM_NAMES
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 MAX_USED_AXIOM_CNT = 3000
 
-COMPRESSION_THRESHOLD = 10000
+COMPRESSION_THRESHOLD = 1000
 
 # these are now ignored in multi_inf_parallel_files_continuous.py
 WHAT_IS_BIG = 12000
@@ -51,7 +50,7 @@ USE_SINE = True
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 256
+EMBED_SIZE = 64
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -72,7 +71,7 @@ DROPOUT = 0.1
 
 # LEARNING PARAMS:
 
-NUMPROCESSES = 60
+NUMPROCESSES = 20
 
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2
@@ -86,7 +85,7 @@ def TestRiskRegimenName(val):
 TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
-LEARN_RATE = 0.00008
+LEARN_RATE = 0.0005
 MOMENTUM = 0.9 # only for SGD
 
 Optimizer_SGD = 1

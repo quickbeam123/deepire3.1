@@ -143,7 +143,10 @@ if __name__ == "__main__":
   prob_data_list = [(metainfo,(init,deriv,pars,selec,good)) for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list]
   print("Done")
 
-  thax_sign = set()
+  if HP.THAX_SOURCE == HP.ThaxSource_AXIOM_NAMES:
+    thax_sign = set() # will get loaded with better stuff below
+  else:
+    pass # keep as it is
 
   print("Smoothed representation and axiom bounding")
   for i, ((probname,probweight),(init,deriv,pars,selec,good)) in enumerate(prob_data_list):

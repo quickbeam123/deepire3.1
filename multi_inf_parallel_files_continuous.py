@@ -201,12 +201,12 @@ if __name__ == "__main__":
 
   id = 0 # id synchronizes writes to the worker pipe
 
-  SAMPLES_PER_EPOCH = HP.SAMPLES_PER_EPOCH
+  samples_per_epoch = len(train_data_idx)
 
-  t = epoch*SAMPLES_PER_EPOCH # time synchronizes writes to master_parts and the stasts
+  t = epoch*samples_per_epoch # time synchronizes writes to master_parts and the stasts
 
-  stats = np.zeros((SAMPLES_PER_EPOCH,3)) # loss_sum, posOK_sum, negOK_sum
-  weights = np.zeros((SAMPLES_PER_EPOCH,2)) # pos_weight, neg_weight
+  stats = np.zeros((samples_per_epoch,3)) # loss_sum, posOK_sum, negOK_sum
+  weights = np.zeros((samples_per_epoch,2)) # pos_weight, neg_weight
 
   MAX_ACTIVE_TASKS = HP.NUMPROCESSES
   num_active_tasks = 0
@@ -261,8 +261,8 @@ if __name__ == "__main__":
     print("Loss,pos,neg:",loss_sum/(tot_pos+tot_neg),posOK_sum/tot_pos if tot_pos > 0.0 else 1.0,negOK_sum/tot_neg if tot_neg > 0.0 else 1.0)
     print()
 
-    stats[t % SAMPLES_PER_EPOCH] = (loss_sum,posOK_sum,negOK_sum)
-    weights[t % SAMPLES_PER_EPOCH] = (tot_pos,tot_neg)
+    stats[t % samples_per_epoch] = (loss_sum,posOK_sum,negOK_sum)
+    weights[t % samples_per_epoch] = (tot_pos,tot_neg)
 
     t += 1
     print(time.time() - start_time,"get finished for time_idx",t)
@@ -271,13 +271,13 @@ if __name__ == "__main__":
     # it worked well with 256 embedding size
     # it worked well with 40 processes active at a time!
 
-    if t <= 50*SAMPLES_PER_EPOCH: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
-      lr = HP.LEARN_RATE*t/(10*SAMPLES_PER_EPOCH)
+    if t <= 50*samples_per_epoch: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
+      lr = HP.LEARN_RATE*t/(10*samples_per_epoch)
       print("Increasing LR to",lr,flush=True)
       for param_group in optimizer.param_groups:
           param_group['lr'] = lr
     else: # hyperbolic cooldown (reach HP.LEARN_RATE at "250 000" = 250 epochs)
-      lr = 250*SAMPLES_PER_EPOCH/t*HP.LEARN_RATE
+      lr = 250*samples_per_epoch/t*HP.LEARN_RATE
       print("Dropping LR to",lr,flush=True)
       for param_group in optimizer.param_groups:
           param_group['lr'] = lr
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     optimizer.step()
     print(time.time() - start_time,"optimizer.step() finished")
 
-    if t % SAMPLES_PER_EPOCH == 0:
+    if t % samples_per_epoch == 0:
       epoch += 1
     
       print("Epoch",epoch,"finished at",time.time() - start_time)
@@ -300,7 +300,7 @@ if __name__ == "__main__":
       # print("stats",stats)
       # print("weights",weights)
 
-      # sum-up stats over the SAMPLES_PER_EPOCH entries (retain the var name):
+      # sum-up stats over the "samples_per_epoch" entries (retain the var name):
       loss_sum,posOK_sum,negOK_sum = np.sum(stats,axis=0)
       tot_pos,tot_neg = np.sum(weights,axis=0)
     

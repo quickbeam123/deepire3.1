@@ -44,7 +44,9 @@ def logname_to_probname(logname):
     return "small_np/"+logname[72:-4]
   elif logname.startswith("_nfs_jakubja5_atp_benchmarks_mizar50_train_premsel_mirek1_gnn_preds__-1_"):
     return "small_np/"+logname[72:-4]
-  else:
+  elif logname.endswith(".smt2.log"):
+    return logname[:-4]
+  else:    
     assert(False)
 
 class Embed(torch.nn.Module):
@@ -273,7 +275,7 @@ def save_net(name,parts,parts_copies,thax_to_str):
     elif thax in thax_to_str:
       st = thax_to_str[thax]
     else:
-      assert thax == 0, thax
+      assert len(thax_to_str) == 0 or thax == 0, thax
       st = str(thax)
     initEmbeds[st] = embed.weight
   
