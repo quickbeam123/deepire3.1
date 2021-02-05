@@ -15,8 +15,6 @@ from collections import ChainMap
 
 import sys,random,itertools
 
-
-
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
   # what can be learned from a super-simple TreeNN
@@ -26,13 +24,34 @@ if __name__ == "__main__":
   #
   # To be called as in: ./data_analyzer.py training_data.pt
 
-  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+  thax_sign1,sine_sign1,deriv_arits1,thax_to_str1 = torch.load("{}/data_sign.pt".format(sys.argv[1]))
 
-  print(thax_sign)
-  print(sine_sign)
-  print(deriv_arits)
-  print(thax_to_str)
+  strs1 = {thax_to_str1[thax] for thax in thax_sign1 if thax in thax_to_str1 }
+  
+  strs1_list = [thax_to_str1[thax] for thax in thax_sign1 if thax in thax_to_str1 ]
+  
+  # print(thax_sign)
+  # print(sine_sign)
+  # print(deriv_arits)
+  # print(thax_to_str)
 
+  thax_sign2,sine_sign2,deriv_arits2,thax_to_str2 = torch.load("{}/data_sign.pt".format(sys.argv[2]))
+
+  strs2 = {thax_to_str2[thax] for thax in thax_sign2 if thax in thax_to_str2 }
+  
+  strs2_list = [thax_to_str2[thax] for thax in thax_sign2 if thax in thax_to_str2]
+
+  '''
+  for i,thax in enumerate(strs1_list):
+    print(thax, i, strs2_list.index(thax))
+  '''
+
+  print("len(strs1)=",len(strs1))
+  print("len(strs2)=",len(strs2))
+  print("len(strs1 & strs2)=",len(strs1 & strs2))
+  
+  print(len(set(strs2_list[:2000]) - strs1))
+  
   exit(0)
 
   train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
