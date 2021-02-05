@@ -15,6 +15,30 @@ from collections import ChainMap
 
 import sys,random,itertools
 
+def compress_by_probname(prob_data_list):
+  by_probname = defaultdict(list)
+
+  for metainfo,rest in prob_data_list:
+    probname = metainfo[0]
+    by_probname[probname].append((metainfo,rest))
+
+  compressed = []
+
+  for probname,bucket in by_probname.items():
+    print("Compressing bucket of",probname,"of total weight",sum(metainfo[1] for metainfo,rest in bucket),"and sizes",[len(rest[0])+len(rest[1]) for metainfo,rest in bucket])
+    # print(probname,len(bucket))
+
+    metainfo,rest = IC.compress_prob_data(bucket)
+
+    # print(metainfo)
+
+    print("Final size",len(rest[0])+len(rest[1]))
+
+    compressed.append((metainfo,rest))
+
+  return compressed
+
+
 def compress_to_treshold(prob_data_list,treshold):
   
   size_hist = defaultdict(int)
@@ -25,6 +49,8 @@ def compress_to_treshold(prob_data_list,treshold):
   size_and_prob = []
   
   for i,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    print(metainfo)
+
     size = len(init)+len(deriv)
     
     size_and_prob.append((size,(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))))
@@ -226,6 +252,9 @@ if __name__ == "__main__":
     torch.save((init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg), filename)
 
     print("Done")
+
+  if False: # is this a good idea with many copies of the same problem?
+    prob_data_list = compress_by_probname(prob_data_list)
 
   if True:
     prob_data_list = compress_to_treshold(prob_data_list,treshold = HP.COMPRESSION_THRESHOLD)
