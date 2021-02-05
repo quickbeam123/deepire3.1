@@ -26,6 +26,7 @@ if __name__ == "__main__":
       for line in f:
         if line.startswith("Epoch") and "finished at" in line:
           time = int(line.split()[1])
+          # print("Have epoch",time)
           times.append(time)
         
         # Loss: 1.1441415896882556 +/- 0.1589903560247135
@@ -34,6 +35,8 @@ if __name__ == "__main__":
           
           loss = float(spl[1])
           losses.append(loss)
+          
+          # print("Have loss",loss)
           
           loss_dev = float(spl[-1])
           losses_devs.append(loss_dev)

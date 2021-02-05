@@ -141,7 +141,7 @@ if __name__ == "__main__":
     print("Done",task[0])
     results.append(res)
   '''
-  pool = Pool(processes=5)
+  pool = Pool(processes=70)
   results = pool.map(eval_one, data_idx, chunksize = 5)
   pool.close()
   pool.join()

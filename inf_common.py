@@ -31,6 +31,22 @@ import sys,random
 
 import hyperparams as HP
 
+# A hacky, hardcoded log name normalizer!
+def logname_to_probname(logname):
+  logname = logname.split("/")[-1]
+  assert(".log" == logname[-4:])
+  if logname.startswith("small_np_"):
+    assert("small_np_" == logname[:9])
+    return "small_np/"+logname[9:-4]
+  elif logname.startswith("_nfs_jakubja5_atp_benchmarks_mizar50_train_premsel_cek2_knn_preds__64_"):
+    return "small_np/"+logname[70:-4]
+  elif logname.startswith("_nfs_jakubja5_atp_benchmarks_mizar50_train_premsel_pepa1_lgb_preds__0.1_"):
+    return "small_np/"+logname[72:-4]
+  elif logname.startswith("_nfs_jakubja5_atp_benchmarks_mizar50_train_premsel_mirek1_gnn_preds__-1_"):
+    return "small_np/"+logname[72:-4]
+  else:
+    assert(False)
+
 class Embed(torch.nn.Module):
   weight: Tensor
   
@@ -926,7 +942,7 @@ def plot_one(filename,times,train_losses,train_posrates,train_negrates,valid_los
   plt.savefig(filename,dpi=250)
   plt.close(fig)
 
-def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs):
+def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_devs,negrates,negrates_devs,clip=None):
   losses = np.array(losses)
   losses_devs = np.array(losses_devs)
   posrates = np.array(posrates)
@@ -944,7 +960,8 @@ def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_dev
   # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
-  ax1.set_ylim([0.0,1.0])
+  if clip:
+    ax1.set_ylim(clip) # [0.0,3.0]
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 

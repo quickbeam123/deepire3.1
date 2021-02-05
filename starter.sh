@@ -2,6 +2,13 @@
 
 ulimit -Sn 1000
 
+cp mizar_strat1new/thax3000orig/run8/hyperparams.py .
+./multi_inf_parallel_files_continuous.py mizar_strat1new/thax3000orig/ mizar_strat1new/thax3000orig/run8 mizar_strat1new/thax3000orig/run8/check-epoch170.pt 2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1new/thax3000orig/ mizar_strat1new/thax3000orig/run8 2>&1
+
+# cp mizar_strat1new/thax3000/run7/hyperparams.py .
+# ./multi_inf_parallel_files_continuous.py mizar_strat1new/thax3000/ mizar_strat1new/thax3000/run7 mizar_strat1new/thax3000/run7/check-epoch189.pt 2>&1
+
 # takovej hezkej default, ackoliv cekam, ze 2000 ho prepere
 # cp mizar_strat1new/thax1000/run1-default/hyperparams.py .
 #./multi_inf_parallel_files_continuous.py mizar_strat1new/thax1000/ mizar_strat1new/thax1000/run1-default 2>&1
@@ -23,9 +30,9 @@ ulimit -Sn 1000
 #./multi_inf_parallel_files_continuous.py mizar_strat1new/thax1000/ mizar_strat1new/thax1000/run5-128 2>&1
 
 # jedu zase thax1000, ale na 512-bitovy embeddingy --- upravuju learning rate na mensi prodle odmocninoveho vzorecku
-cp mizar_strat1new/thax1000/run6-512/hyperparams.py .
-./multi_inf_parallel_files_continuous.py mizar_strat1new/thax1000/ mizar_strat1new/thax1000/run6-512 2>&1
-
+# cp mizar_strat1new/thax1000/run6-512/hyperparams.py .
+# ./multi_inf_parallel_files_continuous.py mizar_strat1new/thax1000/ mizar_strat1new/thax1000/run6-512 2>&1
+# ./multi_inf_parallel_files_continuous.py mizar_strat1new/thax1000/ mizar_strat1new/thax1000/run6-512 mizar_strat1new/thax1000/run6-512/check-epoch347.pt 2>&1
 
 # ./multi_inf_parallel_files_continuous.py mizar_strat1nacc/thax2000/ mizar_strat1nacc/thax2000/run3c/ mizar_strat1nacc/thax2000/run3b/check-epoch500.pt 1000 2>&1
 

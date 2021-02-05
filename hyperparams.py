@@ -4,6 +4,12 @@
 
 import torch
 
+# multi_inf_paralels_config:
+
+SCRATCH = "/scratch/sudamar2/"
+SAMPLES_PER_EPOCH = 350
+MAX_EPOCH = 500
+
 # DATA PREPARATION PARAMS:
 
 TreatAvatarEmpties_JUSTFINAL = 1
@@ -32,7 +38,7 @@ THAX_SOURCE = ThaxSource_AXIOM_NAMES
 # this needs to be done before/during the compression phase
 # note that log-loading already introduced the axioms in the order of decreasing estimated usefulness
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
-MAX_USED_AXIOM_CNT = 1000
+MAX_USED_AXIOM_CNT = 3000
 
 COMPRESSION_THRESHOLD = 10000
 
@@ -80,7 +86,7 @@ def TestRiskRegimenName(val):
 TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
-LEARN_RATE = 0.0001
+LEARN_RATE = 0.00008
 MOMENTUM = 0.9 # only for SGD
 
 Optimizer_SGD = 1

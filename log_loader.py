@@ -18,21 +18,16 @@ import sys,random,itertools
 
 from multiprocessing import Pool
 
-def logname_to_probname(logname):
-  assert("small_np_" == logname[:9])
-  assert(".log" == logname[-4:])
-  return "small_np/"+logname[9:-4]
-
 def load_one(task):
-  i,probname = task
+  i,logname = task
   
   print(i)
   start_time = time.time()
-  result = IC.load_one(probname) # ,max_size=15000)
+  result = IC.load_one(logname) # ,max_size=15000)
   print("Took",time.time()-start_time)
   if result:
     probdata,time_elapsed = result
-    return (probname.split("/")[-1],time_elapsed),probdata
+    return (logname,time_elapsed),probdata
   else:
     None
 
@@ -61,14 +56,14 @@ if __name__ == "__main__":
         spl = line.split()
         prob_easiness[spl[0]] = int(spl[1])
 
-  prob_data_list = [] # [(probname,(init,deriv,pars,selec,good)]
+  prob_data_list = [] # [(logname,(init,deriv,pars,selec,good)]
 
   tasks = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
-      probname = line[:-1]
-      tasks.append((i,probname))
-  pool = Pool(processes=5)
+      logname = line[:-1]
+      tasks.append((i,logname))
+  pool = Pool(processes=10)
   results = pool.map(load_one, tasks, chunksize = 100)
   pool.close()
   pool.join()
@@ -78,8 +73,8 @@ if __name__ == "__main__":
   prob_data_list = []
   with open(sys.argv[2],"r") as f:
     for i,line in enumerate(f):
-      probname = line[:-1]
-      result = load_one((i,probname))
+      logname = line[:-1]
+      result = load_one((i,logname))
       if result is not None:
         prob_data_list.append(result)
   '''
@@ -89,8 +84,8 @@ if __name__ == "__main__":
   times = []
   sizes = []
   easies = []
-  for i,((probname,time_elapsed),probdata) in enumerate(prob_data_list):
-    probname = logname_to_probname(probname)
+  for i,((logname,time_elapsed),probdata) in enumerate(prob_data_list):
+    probname = IC.logname_to_probname(logname)
     easy = prob_easiness[probname] if probname in prob_easiness else 1
     
     probweight = 1.0/easy

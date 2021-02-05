@@ -132,6 +132,10 @@ if __name__ == "__main__":
   # so that the largest ones start evaluating first
   valid_data_idx.sort() # we pop (from the end), so no need for reverse=True!
   
+  # don't validate on the huge ones. It eats crazy amounts of memory:
+  while valid_data_idx[-1][0] > HP.WHAT_IS_HUGE:
+    print("Dropping too huge:",valid_data_idx.pop())
+    
   # valid_data_idx = valid_data_idx[:10] # just to debug
   
   print(flush=True)

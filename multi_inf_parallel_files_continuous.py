@@ -28,8 +28,6 @@ import ctypes
 import ctypes.util
 libc = ctypes.CDLL(ctypes.util.find_library('c'))
 
-SCRATCH = "/scratch/sudamar2/"
-
 def copy_grads_back_from_param(parts,parts_copies):
   for param, param_copy in zip(parts.parameters(),parts_copies.parameters()):
     # print("Copy",param_copy)
@@ -160,7 +158,7 @@ if __name__ == "__main__":
 
   epoch = 0
 
-  MAX_EPOCH = 500
+  MAX_EPOCH = HP.MAX_EPOCH
   
   if len(sys.argv) >= 4:
     (epoch,master_parts,optimizer) = load_checkpoint(sys.argv[3])
@@ -203,7 +201,7 @@ if __name__ == "__main__":
 
   id = 0 # id synchronizes writes to the worker pipe
 
-  SAMPLES_PER_EPOCH = 350
+  SAMPLES_PER_EPOCH = HP.SAMPLES_PER_EPOCH
 
   t = epoch*SAMPLES_PER_EPOCH # time synchronizes writes to master_parts and the stasts
 
@@ -220,7 +218,7 @@ if __name__ == "__main__":
    
   # with 3500000 there was still a slowdown (thax2000, emb 256) probably cause by a swapping period?
 
-  MAX_CAPACITY = 2500000 # a total size of 4653978 caused a crash on air05 with 300G RAM (maybe air04 would still be able to cope with 5M?)
+  MAX_CAPACITY = 5000000 # a total size of 4653978 caused a crash on air05 with 300G RAM (maybe air04 would still be able to cope with 5M?)
   # note that that was a run on thax1000, i.e. 1000 embeddings of axioms (how much do these actually take up in comparison to the proper matrices?)
   assert HP.NUMPROCESSES * HP.COMPRESSION_THRESHOLD * 5 // 4 < MAX_CAPACITY
   cur_allocated = 0
@@ -232,7 +230,10 @@ if __name__ == "__main__":
       while True:
         (size,probname) = random.choice(train_data_idx)
         print("Picking",probname,"of size",size,end="...")
-        if cur_allocated + size > MAX_CAPACITY - (MAX_ACTIVE_TASKS-num_active_tasks) * (HP.COMPRESSION_THRESHOLD * 5 // 4):
+        
+        if size >= HP.WHAT_IS_HUGE:
+          print("Is huge, skipping.")
+        elif cur_allocated + size > MAX_CAPACITY - (MAX_ACTIVE_TASKS-num_active_tasks) * (HP.COMPRESSION_THRESHOLD * 5 // 4):
           print(f"too big! (cur_allocated is {cur_allocated} and still {(MAX_ACTIVE_TASKS-num_active_tasks)} tasks need to allocate)")
         else:
           print()
@@ -242,7 +243,7 @@ if __name__ == "__main__":
       print(time.time() - start_time,"starting job on problem",probname,"of size",size,flush=True)
       
       id += 1
-      parts_file = "{}/parts_{}_{}.pt".format(SCRATCH,os.getpid(),id)
+      parts_file = "{}/parts_{}_{}.pt".format(HP.SCRATCH,os.getpid(),id)
       torch.save(master_parts,parts_file)
       
       q_in.put((probname,size,parts_file,True)) # training is always true in continuous! (TODO: factor out worker to inf_common!)
