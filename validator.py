@@ -165,7 +165,7 @@ if __name__ == "__main__":
         evaluated_models.add(model_num)
         datapoints.append(datapoint)
 
-  MAX_ACTIVE_TASKS = 10
+  MAX_ACTIVE_TASKS = 3
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()

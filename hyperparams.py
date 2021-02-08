@@ -6,8 +6,8 @@ import torch
 
 # multi_inf_paralels_config:
 
-SCRATCH = "/scratch/sudamar2/"
-MAX_EPOCH = 500
+SCRATCH = "/raid/scratch/sudamar2"
+MAX_EPOCH = 100
 
 # DATA PREPARATION PARAMS:
 
@@ -45,12 +45,12 @@ COMPRESSION_THRESHOLD = 1000
 WHAT_IS_BIG = 12000
 WHAT_IS_HUGE = 120000
 
-USE_SINE = True
+USE_SINE = False
 
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 64
+EMBED_SIZE = 128
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -67,7 +67,7 @@ BOTTLENECK_EXPANSION_RATIO = 2 # is used halved for the eval layer (and sine lay
 
 LAYER_NORM = True
 
-DROPOUT = 0.1
+DROPOUT = 0.5
 
 # LEARNING PARAMS:
 
@@ -85,18 +85,26 @@ def TestRiskRegimenName(val):
 TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
-LEARN_RATE = 0.0005
+LEARN_RATE = 0.0001
 MOMENTUM = 0.9 # only for SGD
+
+NON_CONSTANT_10_50_250_LR = False
+
+# Corresponds to L2 regularization
+WEIGHT_DECAY = 0.0
 
 Optimizer_SGD = 1
 Optimizer_ADAM = 2
+Optimizer_ADAMW = 3
 
 def OptimizerName(val):
   if val == Optimizer_SGD:
     return "SGD"
   elif val == Optimizer_ADAM:
-    return "ADAM"
+    return "Adam"
+  elif val == Optimizer_ADAMW:
+    return "AdamW"
 
-OPTIMIZER = Optimizer_ADAM
+OPTIMIZER = Optimizer_SGD
 
 POS_WEIGHT_EXTRA = 1.0

@@ -170,7 +170,7 @@ if __name__ == "__main__":
     # update the learning rate according to hyperparams
     for param_group in optimizer.param_groups:
         param_group['lr'] = HP.LEARN_RATE
-    print("Set optimizer's learning rate to",HP.LEARN_RATE)  
+    print("Set optimizer's (nominal) learning rate to",HP.LEARN_RATE)
   else:
     thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
     master_parts = IC.get_initial_model(thax_sign,sine_sign,deriv_arits)
@@ -181,7 +181,9 @@ if __name__ == "__main__":
     if HP.OPTIMIZER == HP.Optimizer_SGD: # could also play with momentum and its dampening here!
       optimizer = torch.optim.SGD(master_parts.parameters(), lr=HP.LEARN_RATE)
     elif HP.OPTIMIZER == HP.Optimizer_ADAM:
-      optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE)
+      optimizer = torch.optim.Adam(master_parts.parameters(), lr=HP.LEARN_RATE, weight_decay=HP.WEIGHT_DECAY)
+    elif  HP.OPTIMIZER == HP.Optimizer_ADAMW:
+      optimizer = torch.optim.AdamW(master_parts.parameters(), lr=HP.LEARN_RATE, weight_decay=HP.WEIGHT_DECAY)
 
   q_in = torch.multiprocessing.Queue()
   q_out = torch.multiprocessing.Queue()
@@ -266,21 +268,21 @@ if __name__ == "__main__":
 
     t += 1
     print(time.time() - start_time,"get finished for time_idx",t)
-
-    # LATER NORMALIZE THIS:
-    # it worked well with 256 embedding size
-    # it worked well with 40 processes active at a time!
-
-    if t <= 50*samples_per_epoch: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
-      lr = HP.LEARN_RATE*t/(10*samples_per_epoch)
-      print("Increasing LR to",lr,flush=True)
-      for param_group in optimizer.param_groups:
-          param_group['lr'] = lr
-    else: # hyperbolic cooldown (reach HP.LEARN_RATE at "250 000" = 250 epochs)
-      lr = 250*samples_per_epoch/t*HP.LEARN_RATE
-      print("Dropping LR to",lr,flush=True)
-      for param_group in optimizer.param_groups:
-          param_group['lr'] = lr
+  
+    if HP.NON_CONSTANT_10_50_250_LR:
+      # LATER NORMALIZE THIS:
+      # it worked well with 256 embedding size
+      # it worked well with 40 processes active at a time!
+      if t <= 50*samples_per_epoch: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
+        lr = HP.LEARN_RATE*t/(10*samples_per_epoch)
+        print("Increasing effective LR to",lr,flush=True)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+      else: # hyperbolic cooldown (reach HP.LEARN_RATE at "250 000" = 250 epochs)
+        lr = 250*samples_per_epoch/t*HP.LEARN_RATE
+        print("Dropping effective LR to",lr,flush=True)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
 
     num_active_tasks -= 1
     his_parts = torch.load(parts_file)
