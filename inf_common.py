@@ -233,9 +233,11 @@ def name_initial_model_suffix():
     "_UseSine" if HP.USE_SINE else "")
 
 def name_learning_regime_suffix():
-  return "_o{}_lr{}{}{}_wd{}_numproc{}_p{}{}_trr{}.txt".format(
+  return "_o{}_lr{}{}{}{}{}_wd{}_numproc{}_p{}{}_trr{}.txt".format(
     HP.OptimizerName(HP.OPTIMIZER),
     HP.LEARN_RATE,"m{}".format(HP.MOMENTUM) if HP.OPTIMIZER == HP.Optimizer_SGD else "","NonConst" if HP.NON_CONSTANT_10_50_250_LR else "",
+    "clipN{}".format(HP.CLIP_GRAD_NORM) if HP.CLIP_GRAD_NORM else "",
+    "clipV{}".format(HP.CLIP_GRAD_VAL) if HP.CLIP_GRAD_VAL else "",
     HP.WEIGHT_DECAY,    
     HP.NUMPROCESSES,
     HP.POS_WEIGHT_EXTRA,

@@ -289,6 +289,11 @@ if __name__ == "__main__":
     os.remove(parts_file)
     copy_grads_back_from_param(master_parts,his_parts)
     print(time.time() - start_time,"copy_grads_back_from_param finished")
+    if HP.CLIP_GRAD_NORM:
+      torch.nn.utils.clip_grad_norm_(master_parts.parameters(), HP.CLIP_GRAD_NORM)
+    if HP.CLIP_GRAD_VAL:
+      torch.nn.utils.clip_grad_value_(master_parts.parameters(), HP.CLIP_GRAD_VAL)
+    
     optimizer.step()
     print(time.time() - start_time,"optimizer.step() finished")
 

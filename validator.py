@@ -165,7 +165,10 @@ if __name__ == "__main__":
         evaluated_models.add(model_num)
         datapoints.append(datapoint)
 
-  MAX_ACTIVE_TASKS = 3
+  if len(datapoints) > 0:
+    plot_summary_and_report_best(datapoints)
+
+  MAX_ACTIVE_TASKS = 15
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()

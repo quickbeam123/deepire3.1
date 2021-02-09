@@ -39,7 +39,7 @@ THAX_SOURCE = ThaxSource_THAX_FEATURE
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 MAX_USED_AXIOM_CNT = 3000
 
-COMPRESSION_THRESHOLD = 1000
+COMPRESSION_THRESHOLD = 5000
 
 # these are now ignored in multi_inf_parallel_files_continuous.py
 WHAT_IS_BIG = 12000
@@ -67,11 +67,16 @@ BOTTLENECK_EXPANSION_RATIO = 2 # is used halved for the eval layer (and sine lay
 
 LAYER_NORM = True
 
+# These two should probably used exclusively,
+# also they are only imporant when we have (NONLIN == NonLinKind_RELU && LAYER_NORM == False)
+CLIP_GRAD_NORM = None # either None of the max_norm value to pass to clip_grad_norm_
+CLIP_GRAD_VAL = None  # either None of the clip_value value to pass to clip_grad_value_
+
 DROPOUT = 0.5
 
 # LEARNING PARAMS:
 
-NUMPROCESSES = 20
+NUMPROCESSES = 40
 
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2
@@ -88,7 +93,7 @@ SWAPOUT = 0.0
 LEARN_RATE = 0.0001
 MOMENTUM = 0.9 # only for SGD
 
-NON_CONSTANT_10_50_250_LR = False
+NON_CONSTANT_10_50_250_LR = True
 
 # Corresponds to L2 regularization
 WEIGHT_DECAY = 0.0
@@ -105,6 +110,6 @@ def OptimizerName(val):
   elif val == Optimizer_ADAMW:
     return "AdamW"
 
-OPTIMIZER = Optimizer_SGD
+OPTIMIZER = Optimizer_ADAM
 
 POS_WEIGHT_EXTRA = 1.0
