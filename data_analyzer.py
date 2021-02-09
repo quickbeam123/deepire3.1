@@ -26,11 +26,14 @@ if __name__ == "__main__":
 
   thax_sign1,sine_sign1,deriv_arits1,thax_to_str1 = torch.load("{}/data_sign.pt".format(sys.argv[1]))
 
-  print(thax_sign1)
-  print(sine_sign1)
-  print(deriv_arits1)
-  print(thax_to_str1)
-  
+  rule_names = []
+  with open("inferences.info.txt","r") as f:
+    for line in f:
+      rule_names.append(line[:-1])
+
+  for rule in sorted(deriv_arits1):
+    print(rule,rule_names[rule] if rule < 666 else "AVATAR")
+
   exit(0)
 
   thax_sign2,sine_sign2,deriv_arits2,thax_to_str2 = torch.load("{}/data_sign.pt".format(sys.argv[2]))

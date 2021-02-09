@@ -6,7 +6,7 @@ import torch
 
 # multi_inf_paralels_config:
 
-SCRATCH = "/raid/scratch/sudamar2"
+SCRATCH = "/scratch/sudamar2/"
 MAX_EPOCH = 100
 
 # DATA PREPARATION PARAMS:
@@ -39,7 +39,7 @@ THAX_SOURCE = ThaxSource_THAX_FEATURE
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 MAX_USED_AXIOM_CNT = 3000
 
-COMPRESSION_THRESHOLD = 5000
+COMPRESSION_THRESHOLD = 1000
 
 # these are now ignored in multi_inf_parallel_files_continuous.py
 WHAT_IS_BIG = 12000
@@ -76,7 +76,7 @@ DROPOUT = 0.5
 
 # LEARNING PARAMS:
 
-NUMPROCESSES = 40
+NUMPROCESSES = 20
 
 TestRiskRegimen_VALIDATE = 1
 TestRiskRegimen_OVERFIT = 2

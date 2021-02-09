@@ -552,7 +552,13 @@ class EvalMultiModel(torch.nn.Module):
 
     return (loss,self.posOK,self.negOK)
 
-def get_ancestors(seed,pars,**kwargs):
+def is_generating(rule):
+  if rule == 666 or rule == 777:
+    return HP.SPLIT_AT_ACTIVATION
+  else:
+    return rule >= 40 # EVIL: hardcoding the first generating inference in the current deepire3, which is RESOLUTION
+
+def get_ancestors(seed,pars,rules,goods_generating_parents,**kwargs):
   ancestors = kwargs.get("known_ancestors",set())
   # print("Got",len(ancestors))
   todo = [seed]
@@ -563,6 +569,10 @@ def get_ancestors(seed,pars,**kwargs):
       if cur in pars:
         for par in pars[cur]:
           todo.append(par)
+        if is_generating(rules[cur]):
+          for par in pars[cur]:
+            goods_generating_parents.add(par)
+
   return ancestors
 
 def abstract_initial(features):
@@ -581,12 +591,15 @@ def load_one(filename,max_size = None):
   init : List[Tuple[int, Tuple[int, int, int, int, int, int]]] = []
   deriv : List[Tuple[int, Tuple[int, int, int, int, int]]] = []
   pars : Dict[int, List[int]] = {}
+  rules: Dict[int, int] = {} # the rule by which id has the mentioned pars
   selec = set()
   
   axioms : Dict[int, str] = {}
   
   empty = None
   good = set()
+  
+  goods_generating_parents = set()
   
   depths = defaultdict(int)
   max_depth = 0
@@ -637,6 +650,7 @@ def load_one(filename,max_size = None):
         deriv.append((val[1],abstract_deriv(tuple(val[2:7]))))
         id = val[1]
         pars[id] = val[7:]
+        rules[id] = val[6]
         
         update_depths(id,depths,max_depth)
         
@@ -648,6 +662,7 @@ def load_one(filename,max_size = None):
         deriv.append((val[1],abstract_deriv((val[2],val[3],val[4],1,666)))) # 1 for num_splits, 666 for rule
         id = val[1]
         pars[id] = [val[-1]]
+        rules[id] = 666
       
         update_depths(id,depths,max_depth)
       
@@ -660,12 +675,13 @@ def load_one(filename,max_size = None):
         
         # THIS IS THE INCLUSIVE AVATAR STRATEGY; comment out if you only want those empties that really contributed to the final contradiction
         if HP.AVATAR_EMPTIES == HP.TreatAvatarEmpties_INCLUDEALL:
-          good = good | get_ancestors(empty,pars,known_ancestors=good)
+          good = good | get_ancestors(empty,pars,rules,goods_generating_parents,known_ancestors=good)
         
       elif spl[0] == "f:":
         # fake one more derived clause ("-1") into parents
         empty = -1
         pars[empty] = list(map(int,spl[1].split(",")))
+        rules[empty] = 777
         
         update_depths(empty,depths,max_depth)
           
@@ -689,8 +705,13 @@ def load_one(filename,max_size = None):
 
   # one more goodness-collecting run;
   # for the sake of the "f"-empty clause or the last "e:" which can close even an avatar proof (the SAT-solver-was-useless case)
-  good = good | get_ancestors(empty,pars,known_ancestors=good)
+  good = good | get_ancestors(empty,pars,rules,goods_generating_parents,known_ancestors=good)
   good = good & selec # proof clauses that were never selected don't count
+
+  if HP.ONLY_GENERATING_PARENTS:
+    good_before = len(good)
+    good = good & goods_generating_parents
+    print("ONLY_GENERATING_PARENTS reducing goods from",good_before,"to",len(good))
 
   # TODO: consider learning only from hard problems!
   
