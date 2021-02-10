@@ -578,7 +578,10 @@ def get_ancestors(seed,pars,rules,goods_generating_parents,**kwargs):
 def abstract_initial(features):
   goal = features[-3]
   thax = -1 if goal else features[-2]
-  sine = features[-1]
+  if HP.USE_SINE:
+    sine = features[-1]
+  else:
+    sine = 0
   return (thax,sine)
 
 def abstract_deriv(features):
@@ -710,7 +713,10 @@ def load_one(filename,max_size = None):
 
   if HP.ONLY_GENERATING_PARENTS:
     good_before = len(good)
+    print("good before",good)
     good = good & goods_generating_parents
+    print("goods_generating_parents",goods_generating_parents)
+    print("good after",good)
     print("ONLY_GENERATING_PARENTS reducing goods from",good_before,"to",len(good))
 
   # TODO: consider learning only from hard problems!

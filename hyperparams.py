@@ -33,6 +33,9 @@ def ThaxSourceName(val):
 
 THAX_SOURCE = ThaxSource_THAX_FEATURE
 
+SPLIT_AT_ACTIVATION = False
+ONLY_GENERATING_PARENTS = False
+
 # only take the first MAX_USED_AXIOM_CNT thax values to create embeddings for (all other will join 0)
 # this needs to be done before/during the compression phase
 # note that log-loading already introduced the axioms in the order of decreasing estimated usefulness
