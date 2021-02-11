@@ -6,7 +6,7 @@ import torch
 
 # multi_inf_paralels_config:
 
-SCRATCH = "/scratch/sudamar2/"
+SCRATCH = "/raid/scratch/sudamar2"
 MAX_EPOCH = 100
 
 # DATA PREPARATION PARAMS:
@@ -53,7 +53,7 @@ USE_SINE = False
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 128
+EMBED_SIZE = 64
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -75,7 +75,7 @@ LAYER_NORM = True
 CLIP_GRAD_NORM = None # either None of the max_norm value to pass to clip_grad_norm_
 CLIP_GRAD_VAL = None  # either None of the clip_value value to pass to clip_grad_value_
 
-DROPOUT = 0.5
+DROPOUT = 0.3
 
 # LEARNING PARAMS:
 
@@ -93,7 +93,7 @@ def TestRiskRegimenName(val):
 TRR = TestRiskRegimen_VALIDATE
 
 SWAPOUT = 0.0
-LEARN_RATE = 0.0001
+LEARN_RATE = 0.00005
 MOMENTUM = 0.9 # only for SGD
 
 NON_CONSTANT_10_50_250_LR = True
