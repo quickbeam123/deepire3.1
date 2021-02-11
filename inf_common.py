@@ -248,7 +248,7 @@ def name_raw_data_suffix():
   return "_av{}_thax{}_useSine{}.pt".format(
     HP.TreatAvatarEmptiesName(HP.AVATAR_EMPTIES),
     HP.ThaxSourceName(HP.THAX_SOURCE),
-    HP.ThaxSourceName(HP.USE_SINE))
+    HP.USE_SINE)
 
 bigpart1 = '''#!/usr/bin/env python3
 
