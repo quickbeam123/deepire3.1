@@ -75,8 +75,8 @@ def eval_one(task):
       st = "-1"
     elif thax in thax_to_str:
       st = thax_to_str[thax]
-    else:
-      assert thax == 0
+    else:      
+      assert len(thax_to_str) == 0 or thax == 0, thax
       st = str(thax)
 
     # communication via st and sine
@@ -114,7 +114,7 @@ if __name__ == "__main__":
   # test the model on the pieces and report individual and average pos/neg rates
   # finally, plot a logits graph
   #
-  # To be called as in: ./model_debugger_pieces.py <folder1> torch_script_model.pt
+  # To be called as in: ./model_debugger_pieces.py <folder1> torch_script_model.pt TRAIN/VALID/<nothing>
   # 
   # <folder1> to contain "training_data.pt" and "validation_data.pt"
 
@@ -132,7 +132,13 @@ if __name__ == "__main__":
   valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
   print("Loaded valid data:",len(valid_data_idx))
   
-  data_idx = train_data_idx + valid_data_idx
+  specifier = sys.argv[3] if len(sys.argv)>3 else "ALL"
+  if specifier=="TRAIN":
+    data_idx = train_data_idx
+  elif specifier=="VALID":
+    data_idx = valid_data_idx
+  else:
+    data_idx = train_data_idx + valid_data_idx
   
   '''
   results = []
@@ -270,7 +276,7 @@ if __name__ == "__main__":
 
   # plt.show()
 
-  filename = "debugger_plot_{}.png".format(sys.argv[2].split("/")[-1])
+  filename = "debugger_plot_{}_{}.png".format(sys.argv[2].split("/")[-1],specifier)
   plt.savefig(filename,dpi=250)
   print("Saved final plot to",filename)
   plt.close(fig)
@@ -289,7 +295,7 @@ if __name__ == "__main__":
   for val,idx in zip(logit_threshold_vals,logit_threshold_idxs):
     ax.annotate(str(val),xy=(Xs[idx],Ys[idx]))
 
-  filename = "ROC_curve_{}.png".format(sys.argv[2].split("/")[-1])
+  filename = "ROC_curve_{}_{}.png".format(sys.argv[2].split("/")[-1],specifier)
   plt.savefig(filename,dpi=250)
   print("Saved ROC curve to",filename)
   plt.close(fig)
