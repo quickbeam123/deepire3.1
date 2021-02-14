@@ -192,52 +192,53 @@ if __name__ == "__main__":
     prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
   print("Done")
 
-  print("Making smooth compression discreet again")
-  for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
-    print()
-  
-    print(probname,probweight)
-    print(tot_pos,tot_neg)
+  if True:
+    print("Making smooth compression discreet again")
+    for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+      print()
     
-    tot_pos = 0.0
-    tot_neg = 0.0
-            
-    for id,val in neg_vals.items():
-      if id in pos_vals and pos_vals[id] > 0.0: # pos has priority
-        '''
-        if val != 1.0:
-          print("negval goes from",val,"to 0.0 for posval",pos_vals[id])
-        '''
-        neg_vals[id] = 0.0
-      elif val > 0.0:
-        '''
-        if val != 1.0:
-          print("negval goes from",val,"to 1.0")
-        '''
-        neg_vals[id] = 1.0 # neg counts as one
-        tot_neg += 1.0
+      print(probname,probweight)
+      print(tot_pos,tot_neg)
+      
+      tot_pos = 0.0
+      tot_neg = 0.0
+              
+      for id,val in neg_vals.items():
+        if id in pos_vals and pos_vals[id] > 0.0: # pos has priority
+          '''
+          if val != 1.0:
+            print("negval goes from",val,"to 0.0 for posval",pos_vals[id])
+          '''
+          neg_vals[id] = 0.0
+        elif val > 0.0:
+          '''
+          if val != 1.0:
+            print("negval goes from",val,"to 1.0")
+          '''
+          neg_vals[id] = 1.0 # neg counts as one
+          tot_neg += 1.0
 
-    for id,val in pos_vals.items():
-      if val > 0.0:
-        '''
-        if val != 1.0:
-          print("posval goes from",val,"to 1.0")
-        '''
-        pos_vals[id] = 1.0 # pos counts as one too
-        tot_pos += 1.0
+      for id,val in pos_vals.items():
+        if val > 0.0:
+          '''
+          if val != 1.0:
+            print("posval goes from",val,"to 1.0")
+          '''
+          pos_vals[id] = 1.0 # pos counts as one too
+          tot_pos += 1.0
 
-    # new stuff -- normalize so that each abstracted clause in a problem has so much "voice" that tha whole problem has a sum of probweight
-    factor = probweight/(tot_pos+tot_neg)
-    for id,val in pos_vals.items():
-      pos_vals[id] *= factor
-    for id,val in neg_vals.items():
-      neg_vals[id] *= factor
-    tot_pos *= factor
-    tot_neg *= factor
+      # new stuff -- normalize so that each abstracted clause in a problem has so much "voice" that tha whole problem has a sum of probweight
+      factor = probweight/(tot_pos+tot_neg)
+      for id,val in pos_vals.items():
+        pos_vals[id] *= factor
+      for id,val in neg_vals.items():
+        neg_vals[id] *= factor
+      tot_pos *= factor
+      tot_neg *= factor
 
-    print(tot_pos,tot_neg)
+      print(tot_pos,tot_neg)
 
-    prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
+      prob_data_list[i] = ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))
 
   if False: # Big compression now:
     print("Grand compression")

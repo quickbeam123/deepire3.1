@@ -46,7 +46,8 @@ if __name__ == "__main__":
       gains.append(gain)
       losses_atp.append(loss)
 
-  min_solved = np.min(solveds)
+  min_solved = 0.0
+  # min_solved = np.min(solveds) # so that solveds would not be so high compared to gains
 
   fig, ax1 = plt.subplots(figsize=(15,10))
   color = 'tab:red'
@@ -59,7 +60,7 @@ if __name__ == "__main__":
 
   ax1.tick_params(axis='y', labelcolor=color)
 
-  ax1.set_ylim([0.35,0.6])
+  # ax1.set_ylim([0.35,0.6])
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 

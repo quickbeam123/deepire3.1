@@ -19,7 +19,7 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from collections import ChainMap
 
-import sys,random,itertools,os,gc
+import sys,random,itertools,os,gc,errno
 
 import numpy as np
 
@@ -188,7 +188,7 @@ def plot_all_three():
     np.array(tot_poss),
     np.array(tot_negs))
 
-  mask_validation = np.array(validations)
+  mask_validation = np.array(validations,dtype=bool)
 
   plot_summary_and_report_best("validation",
     np.array(loss_sums)[mask_validation],
@@ -262,7 +262,7 @@ if __name__ == "__main__":
   models = []
   models_nums = []
   for num,filename in checkpoint_names:
-    if num % 10 != 0:
+    if num % 5 != 0:
       continue
 
     # print(num,filename)
@@ -273,6 +273,20 @@ if __name__ == "__main__":
     models_nums.append(num)
 
   print(f"Loaded {len(models)} models (others skipped)",flush=True)
+
+  # make sure two important subfolders exist:
+  try:
+    os.mkdir(f"{sys.argv[3]}/points/")
+  except OSError as exc:
+    if exc.errno != errno.EEXIST:
+        raise
+    pass
+  try:
+    os.mkdir(f"{sys.argv[3]}/plots/")
+  except OSError as exc:
+    if exc.errno != errno.EEXIST:
+        raise
+    pass
 
   # LOAD DATAPOINTS if ALREADY HAVING SOME
 
@@ -311,7 +325,7 @@ if __name__ == "__main__":
   print("Starting timer",flush=True)
   start_time = time.time()
 
-  MAX_ACTIVE_TASKS = 10
+  MAX_ACTIVE_TASKS = 60
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()
