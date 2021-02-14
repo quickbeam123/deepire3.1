@@ -284,7 +284,13 @@ def save_net(name,parts,parts_copies,thax_to_str):
   
   # This is, how we envision inference:
   class InfRecNet(torch.nn.Module):
-    store : Dict[int, Tensor] # each id stores its embedding
+    init_abstractions : Dict[str, int]
+    deriv_abstractions : Dict[str, int]
+    
+    abs_ids : Dict[int, int] # each id gets its abs_id
+    embed_store : Dict[int, Tensor] # each abs_id (lazily) stores its embedding
+    eval_store: Dict[int, float] # each abs_id (lazily) stores its eval
+
     initEmbeds : Dict[str, Tensor]
     
     def __init__(self,
@@ -294,7 +300,11 @@ def save_net(name,parts,parts_copies,thax_to_str):
 bigpart2 ='''        eval_net : torch.nn.Module):
       super().__init__()
 
-      self.store = {}
+      self.init_abstractions = {}
+      self.deriv_abstractions = {}
+      self.abs_ids = {}
+      self.embed_store = {}
+      self.eval_store = {}
       
       self.initEmbeds = initEmbeds
       self.sine_embellisher = sine_embellisher'''
@@ -302,33 +312,74 @@ bigpart2 ='''        eval_net : torch.nn.Module):
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
     def forward(self, id: int) -> float:
-      val = self.eval_net(self.store[id])
-      return val[0].item()
+      abs_id = self.abs_ids[id] # must have been mentioned already
+      if abs_id in self.eval_store:
+        return self.eval_store[abs_id]
+      else:
+        val = self.eval_net(self.embed_store[abs_id]) # must have been embedded already
+        self.eval_store[abs_id] = val[0].item()
+        return val[0].item()
 
     @torch.jit.export
     def new_init(self, id: int, features : Tuple[int, int, int, int, int, int], name: str) -> None:
-      if name in self.initEmbeds:
-        embed = self.initEmbeds[name]
+      # an init record is abstracted just by the name str (DOES NOT WORK WITH SINE NOW!)
+      abskey = name
+      if abskey not in self.init_abstractions:
+        abs_id = -(len(self.init_abstractions)+1) # using negative values for abstractions of init clauses
+        self.init_abstractions[abskey] = abs_id
       else:
-        embed = self.initEmbeds["0"]
-      self.store[id] = self.sine_embellisher(features[-1],embed)'''
+        abs_id = self.init_abstractions[abskey]
+
+      # assumes this is called exactly once
+      self.abs_ids[id] = abs_id
+
+      if abs_id not in self.embed_store:
+        if name in self.initEmbeds:
+          embed = self.initEmbeds[name]
+        else:
+          embed = self.initEmbeds["0"]
+        # embed_store[abs_id] = self.sine_embellisher(features[-1],embed) # (DOES NOT WORK WITH SINE NOW!)
+        self.embed_store[abs_id] = embed'''
 
 bigpart_rec2='''
     @torch.jit.export
     def new_deriv{}(self, id: int, features : Tuple[int, int, int, int, int], pars : List[int]) -> None:
       rule = features[-1]
-      arit = len(pars)
-      par_embeds = [self.store[par] for par in pars]
-      embed = self.deriv_{}(par_embeds)
-      self.store[id] = embed'''
+      abskey = ",".join([str(rule)]+[str(self.abs_ids[par]) for par in pars])
+      
+      if abskey not in self.deriv_abstractions:
+        abs_id = len(self.deriv_abstractions)
+        self.deriv_abstractions[abskey] = abs_id
+      else:
+        abs_id = self.deriv_abstractions[abskey]
+      
+      # assumes this is called exactly once
+      self.abs_ids[id] = abs_id
+      
+      if abs_id not in self.embed_store:
+        par_embeds = [self.embed_store[self.abs_ids[par]] for par in pars]
+        embed = self.deriv_{}(par_embeds)
+        self.embed_store[abs_id] = embed'''
 
 bigpart_avat = '''
     @torch.jit.export
     def new_avat(self, id: int, features : Tuple[int, int, int, int]) -> None:
       par = features[-1]
-      par_embeds = [self.store[par]]
-      embed = self.deriv_666(par_embeds) # special avatar code
-      self.store[id] = embed'''
+      abskey = ",".join(["666", str(self.abs_ids[par])])
+      
+      if abskey not in self.deriv_abstractions:
+        abs_id = len(self.deriv_abstractions)
+        self.deriv_abstractions[abskey] = abs_id
+      else:
+        abs_id = self.deriv_abstractions[abskey]
+      
+      # assumes this is called exactly once
+      self.abs_ids[id] = abs_id
+      
+      if abs_id not in self.embed_store:
+        par_embeds = [self.embed_store[self.abs_ids[par]]]
+        embed = self.deriv_666(par_embeds) # special avatar code
+        self.embed_store[abs_id] = embed'''
 
 bigpart3 = '''
   module = InfRecNet(

@@ -96,7 +96,7 @@ SWAPOUT = 0.0
 LEARN_RATE = 0.00005
 MOMENTUM = 0.9 # only for SGD
 
-NON_CONSTANT_10_50_250_LR = True
+NON_CONSTANT_10_50_250_LR = False
 
 # Corresponds to L2 regularization
 WEIGHT_DECAY = 0.0
