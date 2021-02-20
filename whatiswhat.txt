@@ -109,3 +109,7 @@ validator.py
 - it is meant to run in parallel with training, so that it prioritises the latest check-point not-yet-evaluated for the next round
 and is flexible in which checkpoint to actually pick
 
+looper.py
+- an auxiliary script for deciding which -s4k-logs to learn from
+- idea one: just one proof per problem (via greedy cover); the script could help selecting which only configuration to run to collect...
+- idea two: negative mining = check for each loop1 proof its iteration cound and run the base strategy for that long (-al XXX) - merge these with the successful derivations discovered
