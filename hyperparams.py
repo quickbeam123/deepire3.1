@@ -75,7 +75,7 @@ LAYER_NORM = True
 CLIP_GRAD_NORM = None # either None of the max_norm value to pass to clip_grad_norm_
 CLIP_GRAD_VAL = None  # either None of the clip_value value to pass to clip_grad_value_
 
-DROPOUT = 0.2
+DROPOUT = 0.5
 
 # LEARNING PARAMS:
 

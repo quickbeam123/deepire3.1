@@ -668,6 +668,7 @@ def load_one(filename,max_size = None):
 
   just_waiting_for_time = False
   time_elapsed = None
+  activation_limit_reached = False
 
   with open(filename,'r') as f:
     for line in f:
@@ -675,6 +676,11 @@ def load_one(filename,max_size = None):
         return None
       
       # print(line)
+      if line.startswith("% Activation limit reached!"):
+        just_waiting_for_time = True
+        activation_limit_reached = True
+        empty = None
+        
       if line.startswith("% Refutation found."):
         just_waiting_for_time = True
       
@@ -740,7 +746,7 @@ def load_one(filename,max_size = None):
         
         update_depths(empty,depths,max_depth)
           
-  assert (empty is not None), "Check "+filename
+  assert (empty is not None) or activation_limit_reached, "Check "+filename
 
   # NOTE: there are some things that should/could be done differently in the future
   #
@@ -760,8 +766,9 @@ def load_one(filename,max_size = None):
 
   # one more goodness-collecting run;
   # for the sake of the "f"-empty clause or the last "e:" which can close even an avatar proof (the SAT-solver-was-useless case)
-  good = good | get_ancestors(empty,pars,rules,goods_generating_parents,known_ancestors=good)
-  good = good & selec # proof clauses that were never selected don't count
+  if empty:
+    good = good | get_ancestors(empty,pars,rules,goods_generating_parents,known_ancestors=good)
+    good = good & selec # proof clauses that were never selected don't count
 
   if HP.ONLY_GENERATING_PARENTS:
     good_before = len(good)

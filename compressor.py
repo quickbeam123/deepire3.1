@@ -25,8 +25,7 @@ def compress_by_probname(prob_data_list):
   compressed = []
 
   for probname,bucket in by_probname.items():
-    print("Compressing bucket of",probname,"of total weight",sum(metainfo[1] for metainfo,rest in bucket),"and sizes",[len(rest[0])+len(rest[1]) for metainfo,rest in bucket])
-    # print(probname,len(bucket))
+    print("Compressing bucket of size",len(bucket),"for",probname,"of total weight",sum(metainfo[1] for metainfo,rest in bucket),"and sizes",[len(rest[0])+len(rest[1]) for metainfo,rest in bucket],"and posval sizes",[len(rest[3]) for metainfo,rest in bucket])
 
     metainfo,rest = IC.compress_prob_data(bucket)
 
@@ -150,6 +149,8 @@ if __name__ == "__main__":
 
   print("Smoothed representation and axiom bounding")
   for i, ((probname,probweight),(init,deriv,pars,selec,good)) in enumerate(prob_data_list):
+    print(probname,len(init),len(deriv),len(pars),len(selec),len(good))
+  
     pos_vals = defaultdict(float)
     neg_vals = defaultdict(float)
     tot_pos = 0.0
@@ -186,11 +187,14 @@ if __name__ == "__main__":
   torch.save((thax_sign,sine_sign,deriv_arits,thax_to_str), "{}/data_sign.pt".format(sys.argv[1]))
   print(f"Done; data_sign updated (and saved to {sys.argv[1]})")
 
-  print("Compressing")
-  for i, (metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
-    print(metainfo,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
-    prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
-  print("Done")
+  if True: # is this a good idea with many copies of the same problem?
+    prob_data_list = compress_by_probname(prob_data_list)
+  else:
+    print("Compressing")
+    for i, (metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+      print(metainfo,"init: {}, deriv: {}, pos_vals: {}, neg_vals: {}".format(len(init),len(deriv),len(pos_vals),len(neg_vals)))
+      prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
+    print("Done")
 
   '''
   size_sum = 0
@@ -209,9 +213,12 @@ if __name__ == "__main__":
   '''
 
   if True:
-    print("Making smooth compression discreet again")
+    print("Making smooth compression discreet again (and forcing weight back to 1.0!)")
     for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
       print()
+    
+      if True:
+        probweight = 1.0
     
       print(probname,probweight)
       print(tot_pos,tot_neg)
@@ -272,9 +279,6 @@ if __name__ == "__main__":
     torch.save((init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg), filename)
 
     print("Done")
-
-  if False: # is this a good idea with many copies of the same problem?
-    prob_data_list = compress_by_probname(prob_data_list)
 
   if True:
     prob_data_list = compress_to_treshold(prob_data_list,treshold = HP.COMPRESSION_THRESHOLD)
