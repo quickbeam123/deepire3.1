@@ -53,7 +53,7 @@ USE_SINE = False
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 64
+EMBED_SIZE = 128
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -75,7 +75,7 @@ LAYER_NORM = True
 CLIP_GRAD_NORM = None # either None of the max_norm value to pass to clip_grad_norm_
 CLIP_GRAD_VAL = None  # either None of the clip_value value to pass to clip_grad_value_
 
-DROPOUT = 0.3
+DROPOUT = 0.2
 
 # LEARNING PARAMS:
 
