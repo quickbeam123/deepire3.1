@@ -241,26 +241,26 @@ if __name__ == "__main__":
       cur_prob += len(per_prob[logit])
       prob_vals.append(cur_prob)
 
-  fig, ax1 = plt.subplots(figsize=(8, 6))
+  fig, ax1 = plt.subplots(figsize=(4, 3))
 
   color = 'tab:blue'
-  ax1.set_xlabel('logit value')
-  ax1.set_ylabel('clause count (%)', color=color)
-  lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ".", linewidth = 1, label = "neg_vals", color="green")
-  lps, = ax1.plot(logits, (np.array(pos_vals)-pos_vals[-1])/(-pos_vals[-1]), ".", linewidth = 1,label = "pos_vals", color=color)
+  ax1.set_xlabel('logit value threshold')
+  ax1.set_ylabel('clause volume', color=color)
+  lnv, = ax1.plot(logits, np.array(neg_vals)/neg_vals[-1], ".", markersize = 2, label = "TNR", color="green")
+  lps, = ax1.plot(logits, (np.array(pos_vals)-pos_vals[-1])/(-pos_vals[-1]), ".", markersize = 2,label = "TPR", color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
-  ax1.axhline(0.0)
-  ax1.axhline(1.0)
+  ax1.axhline(0.0,linewidth=1)
+  ax1.axhline(1.0,linewidth=1)
 
-  ax1.axvline(0.0)
+  ax1.axvline(0.0,linewidth=1)
 
   ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
   color = 'tab:red'
-  ax2.set_ylabel('problem %', color=color)  # we already handled the x-label with ax1
+  ax2.set_ylabel('problem volume', color=color)  # we already handled the x-label with ax1
 
-  lpv, = ax2.plot(prob_logits, np.array(prob_vals)/prob_vals[-1], "+", label = "per_prob_pos_min", color=color)
+  lpv, = ax2.plot(prob_logits, np.array(prob_vals)/prob_vals[-1], "+", linewidth = 1, label = "min", color=color)
   ax2.tick_params(axis='y', labelcolor=color)
 
   low1,high1 = ax1.get_ylim()
@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
   fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
-  plt.legend(handles = [lnv,lps,lpv], loc='upper left') # loc = 'best' is rumored to be unpredictable
+  plt.legend(handles = [lps,lnv,lpv], loc='upper left', handletextpad=0.1) # loc = 'best' is rumored to be unpredictable
 
   # plt.show()
 
@@ -282,7 +282,7 @@ if __name__ == "__main__":
   plt.close(fig)
 
   # the ROC curve - thanks to Filip. Actually, in my curve, 0 and 1 and flipped, I think
-  fig, ax = plt.subplots(figsize=(8, 8))
+  fig, ax = plt.subplots(figsize=(3, 3))
   ax.set_xlabel('False Positive Rate')
   ax.set_ylabel('True Positive Rate')
 
@@ -294,6 +294,8 @@ if __name__ == "__main__":
 
   for val,idx in zip(logit_threshold_vals,logit_threshold_idxs):
     ax.annotate(str(val),xy=(Xs[idx],Ys[idx]))
+
+  fig.tight_layout()
 
   filename = "ROC_curve_{}_{}.png".format(sys.argv[2].split("/")[-1],specifier)
   plt.savefig(filename,dpi=250)

@@ -93,6 +93,14 @@ def plot_summary_and_report_best(datapoints):
     negrates.append(negrate)
     negrates_devs.append(negrate_dev)
 
+  with open("{}/as_if_run_validate_{}".format(sys.argv[3],IC.name_learning_regime_suffix()), 'w') as f:
+    for (model_num,loss,loss_dev,posrate,posrate_dev,negrate,negrate_dev) in sorted(datapoints):
+      print(f"Epoch {model_num} finished at <fake_time>",file=f)
+      print(f"Loss: {loss} +/- {loss_dev}",file=f)
+      print(f"Posrate: {posrate} +/- {posrate_dev}",file=f)
+      print(f"Negrate: {negrate} +/- {negrate_dev}",file=f)
+      print(file=f)
+
   print("Best validation loss model:",times[best_idx],end=" ")
   print("loss",losses[best_idx],"posrate",posrates[best_idx],"negrate",negrates[best_idx])
 

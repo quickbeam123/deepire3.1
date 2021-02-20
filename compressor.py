@@ -192,6 +192,22 @@ if __name__ == "__main__":
     prob_data_list[i] = IC.compress_prob_data([(metainfo,(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg))])
   print("Done")
 
+  '''
+  size_sum = 0
+  selec_sum = 0
+  good_sum = 0
+  for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):
+    size_sum += len(init)+len(deriv)
+    selec_sum += len(set(pos_vals) | set(neg_vals))
+    good_sum += len(pos_vals)
+
+  print("stats")
+  print(size_sum)
+  print(selec_sum)
+  print(good_sum)
+  exit(0)
+  '''
+
   if True:
     print("Making smooth compression discreet again")
     for i, ((probname,probweight),(init,deriv,pars,pos_vals,neg_vals,tot_pos,tot_neg)) in enumerate(prob_data_list):

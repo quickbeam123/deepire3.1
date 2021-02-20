@@ -24,6 +24,65 @@ if __name__ == "__main__":
   #
   # To be called as in: ./data_analyzer.py training_data.pt
 
+  train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
+  print("Loaded train data:",len(train_data_idx))
+  valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
+  print("Loaded valid data:",len(valid_data_idx))
+  
+  size_total = 0
+  for (size,piece_name) in train_data_idx:
+    #print(piece_name,size)
+    size_total += size
+  for (size,piece_name) in valid_data_idx:
+    # print(piece_name,size)
+    size_total += size
+
+  print("size_total",size_total)
+
+  exit(0)
+
+  rule_names = []
+  with open("inferences.info.txt","r") as f:
+    for line in f:
+      rule_names.append(line[:-1])
+
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+  
+  print(thax_sign)
+  print(len(thax_sign))
+  for thax in sorted(thax_sign):
+    print(thax,rule_names[thax])
+
+  print()
+  print(sine_sign)
+  print()
+  print(deriv_arits)
+  print(len(deriv_arits))
+
+  for rule in sorted(deriv_arits):
+    print(rule,rule_names[rule] if rule < 666 else "AVATAR")
+  print()
+
+  print(thax_to_str)
+
+  exit(0)
+
+  prob_data_list = torch.load(sys.argv[1])
+  
+  size_sum = 0
+  selec_sum = 0
+  good_sum = 0
+  for (metainfo,(init,deriv,pars,selec,good,axioms)) in prob_data_list:
+    size_sum += len(init) + len(deriv)
+    selec_sum += len(selec)
+    good_sum += len(good)
+  
+  print(size_sum)
+  print(selec_sum)
+  print(good_sum)
+
+  exit(0)
+
   thax_sign1,sine_sign1,deriv_arits1,thax_to_str1 = torch.load("{}/data_sign.pt".format(sys.argv[1]))
 
   rule_names = []
