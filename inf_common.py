@@ -323,7 +323,7 @@ bigpart_no_longer_rec1 = '''
     @torch.jit.export
     def new_init(self, id: int, features : Tuple[int, int, int, int, int, int], name: str) -> None:
       # an init record is abstracted just by the name str (DOES NOT WORK WITH SINE NOW!)
-      abskey = name
+      abskey = name{}
       if abskey not in self.init_abstractions:
         abs_id = -(len(self.init_abstractions)+1) # using negative values for abstractions of init clauses
         self.init_abstractions[abskey] = abs_id
@@ -338,8 +338,9 @@ bigpart_no_longer_rec1 = '''
           embed = self.initEmbeds[name]
         else:
           embed = self.initEmbeds["0"]
-        # embed_store[abs_id] = self.sine_embellisher(features[-1],embed) # (DOES NOT WORK WITH SINE NOW!)
-        self.embed_store[abs_id] = embed'''
+        if {}:
+          embed = self.sine_embellisher(features[-1],embed)
+        self.embed_store[abs_id] = embed'''.format("+'_'+str(features[-1])" if HP.USE_SINE else "",HP.USE_SINE)
 
 bigpart_rec2='''
     @torch.jit.export
