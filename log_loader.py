@@ -103,7 +103,7 @@ if __name__ == "__main__":
   ax.set_yscale('log')
   sc = plt.scatter(times,sizes,c=easies,marker="+")
   plt.colorbar(sc)
-  plt.savefig("times_sizes{}.png".format(sys.argv[2].split("/")[0]),dpi=250)
+  plt.savefig("{}/times_sizes{}.png".format(sys.argv[1],sys.argv[2].split("/")[0]),dpi=250)
 
   thax_sign,sine_sign,deriv_arits,axiom_hist = IC.prepare_signature(prob_data_list)
 
