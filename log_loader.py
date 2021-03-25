@@ -58,26 +58,27 @@ if __name__ == "__main__":
 
   prob_data_list = [] # [(logname,(init,deriv,pars,selec,good)]
 
-  tasks = []
-  with open(sys.argv[2],"r") as f:
-    for i,line in enumerate(f):
-      logname = line[:-1]
-      tasks.append((i,logname))
-  pool = Pool(processes=40)
-  results = pool.map(load_one, tasks, chunksize = 100)
-  pool.close()
-  pool.join()
-  del pool
-  prob_data_list = list(filter(None, results))
-  '''
-  prob_data_list = []
-  with open(sys.argv[2],"r") as f:
-    for i,line in enumerate(f):
-      logname = line[:-1]
-      result = load_one((i,logname))
-      if result is not None:
-        prob_data_list.append(result)
-  '''
+  if True: # parallel
+    tasks = []
+    with open(sys.argv[2],"r") as f:
+      for i,line in enumerate(f):
+        logname = line[:-1]
+        tasks.append((i,logname))
+    pool = Pool(processes=50) # number of cores to use
+    results = pool.map(load_one, tasks, chunksize = 100)
+    pool.close()
+    pool.join()
+    del pool
+    prob_data_list = list(filter(None, results))
+  else: # sequential
+    prob_data_list = []
+    with open(sys.argv[2],"r") as f:
+      for i,line in enumerate(f):
+        logname = line[:-1]
+        result = load_one((i,logname))
+        if result is not None:
+          prob_data_list.append(result)
+
   print(len(prob_data_list),"problems loaded!")
 
   # assign weights to problems, especially if prob_easiness file has been provided
