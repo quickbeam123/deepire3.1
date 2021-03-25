@@ -26,6 +26,7 @@ except:
     # polyfill from `torch.jit`.
     from torch.jit import Final
 
+from itertools import chain
 from collections import defaultdict
 import sys,random
 
@@ -670,6 +671,7 @@ def load_one(filename,max_size = None):
   just_waiting_for_time = False
   time_elapsed = None
   activation_limit_reached = False
+  time_limit_reached = False
 
   with open(filename,'r') as f:
     for line in f:
@@ -681,7 +683,12 @@ def load_one(filename,max_size = None):
         just_waiting_for_time = True
         activation_limit_reached = True
         empty = None
-        
+      
+      if line.startswith("% Time limit reached!"):
+        just_waiting_for_time = True
+        time_limit_reached = True
+        empty = None
+    
       if line.startswith("% Refutation found."):
         just_waiting_for_time = True
       
@@ -747,7 +754,10 @@ def load_one(filename,max_size = None):
         
         update_depths(empty,depths,max_depth)
           
-  assert (empty is not None) or activation_limit_reached, "Check "+filename
+  assert (empty is not None) or activation_limit_reached or time_limit_reached, "Check "+filename
+
+  if time_limit_reached:
+    print("Warning: time limit reached for",filename)
 
   # NOTE: there are some things that should/could be done differently in the future
   #
@@ -794,6 +804,33 @@ def load_one(filename,max_size = None):
   '''
 
   print("init: {}, deriv: {}, select: {}, good: {}, axioms: {}, time: {}".format(len(init),len(deriv),len(selec),len(good),len(axioms),time_elapsed))
+
+  '''  ---  some periliminary quagmire debugging output
+  ancestors = {} # id -> set_of_ancestors
+  times_seen_as_an_acestor = defaultdict(int) # for every id, let's make a stroke when for each clause we see among the ancestors
+
+  for id,something in init:
+    ancestors[id] = {id}
+    times_seen_as_an_acestor[id] += 1
+  
+  for id,something in deriv:
+    my_ancstors = {id}
+    for par in pars[id]:
+      my_ancstors = my_ancstors | ancestors[par]
+    for anc in my_ancstors:
+      times_seen_as_an_acestor[anc] += 1
+    ancestors[id] = my_ancstors
+
+  total = len(init)+len(deriv)
+  for id,something in init:
+    if id in selec:
+      print("i {:6d} {:4d} {:4d}".format(id,times_seen_as_an_acestor[id],total),id in good, something)
+    total -= 1
+  for id,something in deriv:
+    if id in selec:
+      print("d {:6d} {:4d} {:4d}".format(id,times_seen_as_an_acestor[id],total),id in good,pars[id])
+    total -= 1
+  '''
 
   return (init,deriv,pars,selec,good,axioms),time_elapsed
 
@@ -940,7 +977,7 @@ def compress_prob_data(some_probs):
     out_probweight += probweight
 
     for old_id, features in init:
-      abskey = features
+      abskey = features # TODO: we might want to kick out SINE when not using it!
 
       if abskey not in abs2new:
         new_id = id_cnt
