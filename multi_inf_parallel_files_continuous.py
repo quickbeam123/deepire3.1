@@ -273,13 +273,15 @@ if __name__ == "__main__":
       # LATER NORMALIZE THIS:
       # it worked well with 256 embedding size
       # it worked well with 40 processes active at a time!
-      if t <= 50*samples_per_epoch: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
+      # newly using preferrably n = 128 and 20 processes
+      # also chaging warmup to only 40 epochs and the max LR to 4x nominal (older comments left around - TODO clean up properly!)
+      if t <= 40*samples_per_epoch: # initial warmup: take "50 000" optimizer steps (= 50 epochs) to reach 5*HP.LEARN_RATE (in 10 epochs, HP.LEARN_RATE has been reached and then it's gradually overshot)
         lr = HP.LEARN_RATE*t/(10*samples_per_epoch)
         print("Increasing effective LR to",lr,flush=True)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-      else: # hyperbolic cooldown (reach HP.LEARN_RATE at "250 000" = 250 epochs)
-        lr = 250*samples_per_epoch/t*HP.LEARN_RATE
+      else: # hyperbolic cooldown (reach HP.LEARN_RATE at "250 000" = 250 epochs) # newly reaches HP.LEARN_RATE at epoch 160
+        lr = 160*samples_per_epoch/t*HP.LEARN_RATE
         print("Dropping effective LR to",lr,flush=True)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
