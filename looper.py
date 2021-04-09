@@ -42,6 +42,12 @@ if __name__ == "__main__":
       
       print(i, pklname)
       
+      if False and i > 0:
+        solved_file_name = pklname.split("/")[-1]+".solved.txt"
+        with open(solved_file_name,"w") as f:
+          for probname in solved-covered:
+            print(probname,file=f)
+      
       if False and i > 0: # start looking at the logfiles to check for activation time limits for negative mining version
         source_folder_name = pklname[:-4]+"_s4k-on"
         for probname in solved-covered:
@@ -55,7 +61,8 @@ if __name__ == "__main__":
               if line.startswith("% Main loop iterations started:"):
                 mis = int(line.split()[-1])
                 
-          print("."+probname,"-al",mis)
+          #print("."+probname,"-al",mis)
+          print(probname,"-al",int(mis*1.3))
       
       if False and i > 0: # a very hacky tool to copy just the contributed logs from where the pickles are to newly created folders under NEW_EXPORT, which must exist
         NEW_EXPORT = "smtlibbing/loop1dis10_10_plain/"
