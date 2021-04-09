@@ -42,7 +42,9 @@ ONLY_GENERATING_PARENTS = False
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
 MAX_USED_AXIOM_CNT = 3000
 
-COMPRESSION_THRESHOLD = 1000
+COMPRESSION_THRESHOLD = 20000
+
+VALID_SPLIT_RATIO = 0.9
 
 # these are now ignored in multi_inf_parallel_files_continuous.py
 WHAT_IS_BIG = 12000

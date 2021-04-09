@@ -128,7 +128,7 @@ if __name__ == "__main__":
   #
   # optionally, multiple problems can be grouped together (also using the compression code)
   #
-  # finally, 80-20 split on the suffled list is performed and training_data.pt validation_data.pt are saved to folder
+  # finally, a split on the shuffled list is performed (according to HP.VALID_SPLIT_RATIO) and training_data.pt validation_data.pt are saved to folder
 
   prob_data_list = torch.load(sys.argv[2])
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     print("Done")
 
   random.shuffle(prob_data_list)
-  spl = math.ceil(len(prob_data_list) * 0.8)
+  spl = math.ceil(len(prob_data_list) * HP.VALID_SPLIT_RATIO)
   print("shuffled and split at idx",spl,"out of",len(prob_data_list))
   print()
 
