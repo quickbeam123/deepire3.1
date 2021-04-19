@@ -50,7 +50,11 @@ VALID_SPLIT_RATIO = 0.9
 WHAT_IS_BIG = 12000
 WHAT_IS_HUGE = 120000
 
-USE_SINE = False
+# used for both training and model export (should be kept the same)
+USE_SINE = True
+
+# any other value than -1 (which means "off") will get hardwired during export into the model
+FAKE_CONST_SINE_LEVEL = -1
 
 # MODEL PARAMS:
 

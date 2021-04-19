@@ -309,7 +309,9 @@ bigpart2 ='''        eval_net : torch.nn.Module):
       
       self.initEmbeds = initEmbeds
       self.sine_embellisher = sine_embellisher'''
-      
+
+sine_val_prog = "features[-1]" if HP.FAKE_CONST_SINE_LEVEL == -1 else str(HP.FAKE_CONST_SINE_LEVEL)
+
 bigpart_no_longer_rec1 = '''
     @torch.jit.export
     def forward(self, id: int) -> float:
@@ -323,7 +325,7 @@ bigpart_no_longer_rec1 = '''
 
     @torch.jit.export
     def new_init(self, id: int, features : Tuple[int, int, int, int, int, int], name: str) -> None:
-      # an init record is abstracted just by the name str (DOES NOT WORK WITH SINE NOW!)
+      # an init record is abstracted just by the name str
       abskey = name{}
       if abskey not in self.init_abstractions:
         abs_id = -(len(self.init_abstractions)+1) # using negative values for abstractions of init clauses
@@ -340,8 +342,8 @@ bigpart_no_longer_rec1 = '''
         else:
           embed = self.initEmbeds["0"]
         if {}:
-          embed = self.sine_embellisher(features[-1],embed)
-        self.embed_store[abs_id] = embed'''.format("+'_'+str(features[-1])" if HP.USE_SINE else "",HP.USE_SINE)
+          embed = self.sine_embellisher({},embed)
+        self.embed_store[abs_id] = embed'''.format("+'_'+str({})".format(sine_val_prog) if HP.USE_SINE else "",HP.USE_SINE,sine_val_prog)
 
 bigpart_rec2='''
     @torch.jit.export
