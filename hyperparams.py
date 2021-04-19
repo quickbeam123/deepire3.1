@@ -118,3 +118,5 @@ def OptimizerName(val):
 OPTIMIZER = Optimizer_ADAM
 
 POS_WEIGHT_EXTRA = 1.0
+
+FRACTIONAL_CHECKPOINTING = 5 # 0 means disabled, 1 does not make sense

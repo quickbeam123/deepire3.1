@@ -176,7 +176,7 @@ if __name__ == "__main__":
   if len(datapoints) > 0:
     plot_summary_and_report_best(datapoints)
 
-  MAX_ACTIVE_TASKS = 30
+  MAX_ACTIVE_TASKS = 50
   num_active_tasks = 0
 
   q_in = torch.multiprocessing.Queue()
@@ -190,14 +190,23 @@ if __name__ == "__main__":
   # LOOPING
   while True:
     youngest_unevaluated = None
-    youngests_age = 0
+    youngests_age = 0.0
     # Look for a not yet evaluated check-point
     for filename in os.listdir(sys.argv[2]):
       if filename.startswith("check-epoch") and filename.endswith(".pt"):
-        model_num = int(filename[11:-3])
+        model_num_str = filename[11:-3]
+        dot_idx = model_num_str.find(".")
+        if dot_idx >= 0:
+          # assuming there is just one dot
+          whole = int(model_num_str[:dot_idx])
+          frac = int(model_num_str[dot_idx+1:])
+          model_num = whole + frac / HP.FRACTIONAL_CHECKPOINTING
+        else:
+          model_num = float(model_num_str) # even the whole ones should be floats
+        
         # print(filename,model_num)
         if model_num not in evaluated_models and model_num > youngests_age:
-          # print("Update",youngest_unevaluated,youngests_age)
+          print("Update",youngest_unevaluated,youngests_age)
           youngest_unevaluated = filename
           youngests_age = model_num
 

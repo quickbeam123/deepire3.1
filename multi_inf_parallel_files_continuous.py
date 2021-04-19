@@ -93,11 +93,11 @@ def worker(q_in, q_out):
 
     libc.malloc_trim(ctypes.c_int(0))
 
-def save_checkpoint(epoch, model, optimizer):
+def save_checkpoint(epoch_num, epoch_id, model, optimizer):
   print("checkpoint",epoch)
 
-  check_name = "{}/check-epoch{}.pt".format(sys.argv[2],epoch)
-  check = (epoch,model,optimizer)
+  check_name = "{}/check-epoch{}.pt".format(sys.argv[2],epoch_id)
+  check = (epoch_num,model,optimizer)
   torch.save(check,check_name)
 
 def load_checkpoint(filename):
@@ -299,11 +299,12 @@ if __name__ == "__main__":
     optimizer.step()
     print(time.time() - start_time,"optimizer.step() finished")
 
-    if t % samples_per_epoch == 0:
+    modulus = t % samples_per_epoch
+    if modulus == 0:
       epoch += 1
     
       print("Epoch",epoch,"finished at",time.time() - start_time)
-      save_checkpoint(epoch,master_parts,optimizer)
+      save_checkpoint(epoch,epoch,master_parts,optimizer)
       print()
 
       # print("stats",stats)
@@ -344,7 +345,16 @@ if __name__ == "__main__":
       
       if epoch >= MAX_EPOCH:
         break
-
+    else:
+      # fractional checkpointing ... TODO: make only enabled later in the run?
+      if HP.FRACTIONAL_CHECKPOINTING > 0:
+        modulus_frac = samples_per_epoch // HP.FRACTIONAL_CHECKPOINTING
+        if modulus % modulus_frac == 0:
+          frac = modulus // modulus_frac
+          print("Epoch frac {}.{} finished at {}".format(epoch,frac,time.time() - start_time))
+          save_checkpoint(epoch+frac/HP.FRACTIONAL_CHECKPOINTING,"{}.{}".format(epoch,frac),master_parts,optimizer)
+          print()
+      
   # a final "cleanup"
   for p in my_processes:
     p.kill()
