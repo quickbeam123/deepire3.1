@@ -1123,7 +1123,7 @@ def plot_with_devs_just_loss_and_LR(plotname,models_nums,losses,losses_devs,lear
 
   color = 'tab:blue'
   ax1.set_xlabel('time (epochs)')
-  ax1.set_ylabel('learning rate (1e-4)', color=color)  # we already handled the x-label with ax1
+  ax1.set_ylabel('learning rate (x 1e-4)', color=color)  # we already handled the x-label with ax1
 
   # ax1.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useOffset=False)
   vpr, = ax1.plot(models_nums, learning_rates, "-", label = "learning rate", color = color)
