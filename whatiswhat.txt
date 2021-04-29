@@ -81,7 +81,7 @@ model_visualizer_(raw).py
 - load the (raw) dataset and a model
 - start looking at individual abstract clauses to see what the models says about them (and perhaps also compare this to the gold thingie...)
 
-model_debugged_(pieces).py
+model_debugger_(pieces).py
 - plots this graph showing the distribution of logits of an obtained model;
 in partucular, it attempts to highlihgt the "mass" of positive pieces left "below" the treshold
 and the "mass" of the negative ones left above

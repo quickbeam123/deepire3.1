@@ -24,6 +24,36 @@ if __name__ == "__main__":
   #
   # To be called as in: ./data_analyzer.py training_data.pt
 
+  rule_names = {}
+  with open("inferences.info.txt","r") as f:
+    for i,line in enumerate(f):
+      rule_names[i] = line[:-1]
+  rule_names[666] = "AVATAR"
+  rule_names[-1] = "CONJECTURE"
+
+  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
+  
+  print(thax_sign)
+  print(len(thax_sign))
+  '''
+  for thax in sorted(thax_sign):
+    print(thax,rule_names[thax])
+  '''
+
+  print()
+  print(sine_sign)
+  print()
+  print(deriv_arits)
+  print(len(deriv_arits))
+  print()
+  for rule in sorted(deriv_arits):
+    print(rule,rule_names[rule] if rule < 666 else "AVATAR")
+  print()
+
+  # print(thax_to_str)
+
+  exit(0)
+
   train_data_idx = torch.load("{}/training_index.pt".format(sys.argv[1]))
   print("Loaded train data:",len(train_data_idx))
   valid_data_idx = torch.load("{}/validation_index.pt".format(sys.argv[1]))
@@ -38,32 +68,6 @@ if __name__ == "__main__":
     size_total += size
 
   print("size_total",size_total)
-
-  exit(0)
-
-  rule_names = []
-  with open("inferences.info.txt","r") as f:
-    for line in f:
-      rule_names.append(line[:-1])
-
-  thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load("{}/data_sign.pt".format(sys.argv[1]))
-  
-  print(thax_sign)
-  print(len(thax_sign))
-  for thax in sorted(thax_sign):
-    print(thax,rule_names[thax])
-
-  print()
-  print(sine_sign)
-  print()
-  print(deriv_arits)
-  print(len(deriv_arits))
-
-  for rule in sorted(deriv_arits):
-    print(rule,rule_names[rule] if rule < 666 else "AVATAR")
-  print()
-
-  print(thax_to_str)
 
   exit(0)
 
