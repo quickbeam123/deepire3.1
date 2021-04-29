@@ -42,13 +42,13 @@ if __name__ == "__main__":
       
       print(i, pklname)
       
-      if False and i > 0:
+      if False and i > 6:
         solved_file_name = pklname.split("/")[-1]+".solved.txt"
         with open(solved_file_name,"w") as f:
           for probname in solved-covered:
             print(probname,file=f)
       
-      if False and i > 0: # start looking at the logfiles to check for activation time limits for negative mining version
+      if False and i > 6: # start looking at the logfiles to check for activation time limits for negative mining version
         source_folder_name = pklname[:-4]+"_s4k-on"
         for probname in solved-covered:
           logname = probname.replace("/","_") + ".log"
