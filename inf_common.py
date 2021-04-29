@@ -185,9 +185,11 @@ class EmptySineEmbellisher(torch.nn.Module):
 
 def get_initial_model(thax_sign,sine_sign,deriv_arits):
   init_embeds = torch.nn.ModuleDict()
+  '''
   if HP.SWAPOUT > 0.0:
     assert(-1 in thax_sign) # to have conjecture embedding
     assert(0 in thax_sign)  # to have user-fla embedding
+  '''
   
   if HP.USE_SINE:
     sine_sign.remove(255)
@@ -205,8 +207,8 @@ def get_initial_model(thax_sign,sine_sign,deriv_arits):
   if HP.SWAPOUT > 0.0:
     # to have the arity 1 and 2 defaults
     # NOTE: 1 and 2 don't conflict with proper rule indexes
-    assert(deriv_arits[1] == 1)
-    assert(deriv_arits[2] == 2)
+    deriv_arits[1] = 1
+    deriv_arits[2] = 3 # use the multiary for anything else than unary
 
   deriv_mlps = torch.nn.ModuleDict()
   for rule,arit in deriv_arits.items():
@@ -505,10 +507,12 @@ class LearningModel(torch.nn.Module):
     loss = torch.zeros(1)
     
     for id, (thax,sine) in self.init:
+      '''
       if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
         embed = self.init_embeds[str(0)]()
       else:
-        embed = self.init_embeds[str(thax)]()
+      '''
+      embed = self.init_embeds[str(thax)]()
     
       if HP.USE_SINE:
         embed = self.sine_embellisher(sine,embed)
@@ -522,9 +526,12 @@ class LearningModel(torch.nn.Module):
       
       par_embeds = [store[par] for par in self.pars[id]]
       
-      if HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
+      if self.training and HP.SWAPOUT > 0.0 and random.random() < HP.SWAPOUT:
         arit = len(self.pars[id])
-        embed = self.deriv_mlps[str(arit)](par_embeds)
+        if arit == 1:
+          embed = self.deriv_mlps["1"](par_embeds)
+        else:
+          embed = self.deriv_mlps["2"](par_embeds)
       else:
         embed = self.deriv_mlps[str(rule)](par_embeds)
       
@@ -868,7 +875,7 @@ def prepare_signature(prob_data_list):
     if HP.SWAPOUT > 0.0:
       # make sure we have arity 1 and 2 defaults
       deriv_arits[1] = 1
-      deriv_arits[2] = 2
+      deriv_arits[2] = 3 # an experiment: # use the multiary for anything else than unary
   
     for id,ax in axioms.items():
       axiom_hist[ax] += probweight
