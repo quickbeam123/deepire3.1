@@ -6,7 +6,7 @@ import torch
 
 # multi_inf_paralels_config:
 
-SCRATCH = "/raid/scratch/sudamar2"
+SCRATCH = "/scratch/sudamar2/" # add /raid/. for dgx
 MAX_EPOCH = 100
 
 # DATA PREPARATION PARAMS:
@@ -31,7 +31,7 @@ def ThaxSourceName(val):
   elif val == ThaxSource_AXIOM_NAMES:
     return "AxiomNames"
 
-THAX_SOURCE = ThaxSource_THAX_FEATURE
+THAX_SOURCE = ThaxSource_AXIOM_NAMES
 
 SPLIT_AT_ACTIVATION = False
 ONLY_GENERATING_PARENTS = False
@@ -40,7 +40,7 @@ ONLY_GENERATING_PARENTS = False
 # this needs to be done before/during the compression phase
 # note that log-loading already introduced the axioms in the order of decreasing estimated usefulness
 # only makes sense for THAX_SOURCE = ThaxSource_AXIOM_NAMES
-MAX_USED_AXIOM_CNT = 3000
+MAX_USED_AXIOM_CNT = 5000
 
 COMPRESSION_THRESHOLD = 20000
 
@@ -59,7 +59,7 @@ FAKE_CONST_SINE_LEVEL = -1
 # MODEL PARAMS:
 
 # a hyper-parameter of the future model
-EMBED_SIZE = 64
+EMBED_SIZE = 128
 
 NonLinKind_TANH = 1
 NonLinKind_RELU = 2
@@ -81,7 +81,7 @@ LAYER_NORM = True
 CLIP_GRAD_NORM = None # either None of the max_norm value to pass to clip_grad_norm_
 CLIP_GRAD_VAL = None  # either None of the clip_value value to pass to clip_grad_value_
 
-DROPOUT = 0.3
+DROPOUT = 0.2
 
 # LEARNING PARAMS:
 
