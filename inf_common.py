@@ -1130,30 +1130,30 @@ def plot_with_devs(plotname,models_nums,losses,losses_devs,posrates,posrates_dev
 def plot_with_devs_just_loss_and_LR(plotname,models_nums,losses,losses_devs,learning_rates,clipLoss=None):
   losses = np.array(losses)
   losses_devs = np.array(losses_devs)
-  learning_rates = 10000*np.array(learning_rates)
+  # learning_rates = 10000*np.array(learning_rates)
 
-  fig, ax1 = plt.subplots(figsize=(4, 3))
+  fig, ax1 = plt.subplots(figsize=(3, 3))
 
   color = 'tab:blue'
   ax1.set_xlabel('time (epochs)')
-  ax1.set_ylabel('learning rate (x 1e-4)', color=color)  # we already handled the x-label with ax1
+  # ax1.set_ylabel('learning rate (x 1e-4)', color=color)  # we already handled the x-label with ax1
 
   # ax1.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useOffset=False)
-  vpr, = ax1.plot(models_nums, learning_rates, "-", label = "learning rate", color = color)
+  # vpr, = ax1.plot(models_nums, learning_rates, "-", label = "learning rate", color = color)
+  
+  color = 'tab:red'
+  ax1.set_ylabel('training loss', color=color)
   ax1.tick_params(axis='y', labelcolor=color)
 
-  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+  # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
-  color = 'tab:red'
-  
-  ax2.set_ylabel('training / validation loss', color=color)
-  vl, = ax2.plot(models_nums, losses, "-", linewidth = 1,label = "training loss", color=color)
-  ax2.fill_between(models_nums, losses-losses_devs, losses+losses_devs, facecolor=color, alpha=0.5)
+  vl, = ax1.plot(models_nums, losses, "-", linewidth = 1,label = "training loss", color=color)
+  ax1.fill_between(models_nums, losses-losses_devs, losses+losses_devs, facecolor=color, alpha=0.5)
   # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
-  ax2.tick_params(axis='y', labelcolor=color)
+  ax1.tick_params(axis='y', labelcolor=color)
 
-  if clipLoss:
-    ax2.set_ylim(clipLoss) # [0.0,3.0]
+  # if clipLoss:
+  #   ax2.set_ylim(clipLoss) # [0.0,3.0]
 
   # For pos and neg rates, we know the meaningful range:
   # ax2.set_ylim([-0.05,1.05])
@@ -1178,8 +1178,10 @@ def plot_with_devs_just_loss_and_ATPeval(plotname,models_nums,losses,losses_devs
   vl, = ax1.plot(models_nums, losses, "-", linewidth = 1,label = "validation loss", color=color)
   ax1.fill_between(models_nums, losses-losses_devs, losses+losses_devs, facecolor=color, alpha=0.5)
   # lr, = ax1.plot(times, rates, ":", linewidth = 1,label = "learning_rate", color=color)
-  # ax1.tick_params(axis='y', labelcolor=color)
-  ax1.yaxis.set_ticklabels([])
+  ax1.tick_params(axis='y', labelcolor=color)
+  # ax1.yaxis.set_ticklabels([])
+
+  ax1.set_ylabel('validation loss', color=color)
 
   if clipLoss:
     ax1.set_ylim(clipLoss) # [0.0,3.0]
