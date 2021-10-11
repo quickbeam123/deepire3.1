@@ -15,9 +15,6 @@ Deepire3.1 is meant to be polishing of Deepire3
 
 
 
-
-
-
 Python scripts:
 ---------------
 
@@ -26,7 +23,9 @@ inf_common.py
 - "inf" means we are focusing on building a model which only cares about inferences (their id's and id's of input axioms / theory axioms) and nothing else, when deciding good/bad for each clause 
 (while the showForKarel part on the vampire sides tries to be more general, i.e., all the other simple features are being output to yield posnegs, the model architecture is, of course, inf-specifif, and, the model reading part in vampire is also inf-specific, which is the annoying part)
 
-- at the beginning, inf_common tries to list all the hyper-parameters, we might care about changing 
+hyperparams.py
+
+- all the hyper-parameters, we might care about changing 
 
 - one of them is SWAPOUT, which, when grater than zero, defines the probability (during learning) that a part of the network corresponding to a particular inference or input axiom gets swapped by a generic one; this could work as a regularizer, but also, makes sure the generic gets trained enough so that it can be used for (during learning) unseen inferences (axioms) during vampiric-inference mode
 
@@ -81,7 +80,6 @@ model_visualizer_(raw).py
 - load the (raw) dataset and a model
 - start looking at individual abstract clauses to see what the models says about them (and perhaps also compare this to the gold thingie...)
 
-model_debugger_(pieces).py
 - plots this graph showing the distribution of logits of an obtained model;
 in partucular, it attempts to highlihgt the "mass" of positive pieces left "below" the treshold
 and the "mass" of the negative ones left above
@@ -112,4 +110,4 @@ and is flexible in which checkpoint to actually pick
 looper.py
 - an auxiliary script for deciding which -s4k-logs to learn from
 - idea one: just one proof per problem (via greedy cover); the script could help selecting which only configuration to run to collect...
-- idea two: negative mining = check for each loop1 proof its iteration cound and run the base strategy for that long (-al XXX) - merge these with the successful derivations discovered
+- idea two: negative mining = check for each loop1 proof its iteration count and run the base strategy for that long (-al XXX) - merge these with the successful derivations discovered
