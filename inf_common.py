@@ -47,7 +47,9 @@ def logname_to_probname(logname):
     return "small_np/"+logname[72:-4]
   elif logname.endswith(".smt2.log"):
     return logname[:-4]
-  else:    
+  elif logname.endswith("1_m.log"): # jinja
+    return logname[:-4]
+  else:
     assert(False)
 
 class Embed(torch.nn.Module):
