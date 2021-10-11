@@ -629,11 +629,13 @@ def get_ancestors(seed,pars,rules,goods_generating_parents,**kwargs):
   todo = [seed]
   while todo:
     cur = todo.pop()
+    # print("cur",cur)
     if cur not in ancestors:
       ancestors.add(cur)
       if cur in pars:
         for par in pars[cur]:
           todo.append(par)
+          # print("Adding",par,"for",cur,"because of",rules[cur])
         if is_generating(rules[cur]):
           for par in pars[cur]:
             goods_generating_parents.add(par)
