@@ -14,6 +14,8 @@ import sys,random,itertools
 
 import inf_common as IC
 
+import hyperparams as HP
+
 if __name__ == "__main__":
   # Experiments with pytorch and torch script
   # what can be learned from a super-simple TreeNN
@@ -29,6 +31,13 @@ if __name__ == "__main__":
 
   thax_sign,sine_sign,deriv_arits,thax_to_str = torch.load(sys.argv[1])
   print("Loaded signature from",sys.argv[1])
+
+  # TODO: an ugly copy-paste from IC.get_initial_model which does not modify deriv_arits and so this needs to be repeated here
+  if HP.SWAPOUT > 0.0:
+    # to have the arity 1 and 2 defaults
+    # NOTE: 1 and 2 don't conflict with proper rule indexes
+    deriv_arits[1] = 1
+    deriv_arits[2] = 3 # use the multiary for anything else than unary
 
   IC.create_saver(deriv_arits)
   import inf_saver as IS
