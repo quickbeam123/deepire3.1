@@ -888,7 +888,9 @@ def prepare_signature(prob_data_list):
 
 def axiom_names_instead_of_thax(thax_sign,axiom_hist,prob_data_list):
   # (we didn't parse anything than 0 and -1 anyway:)
-  assert(0 in thax_sign and (len(thax_sign) == 1 or len(thax_sign) == 2 and -1 in thax_sign))
+  # well, actually, in HOL/Sledgehammer we have both thax and user axioms
+  # (and we treat all as user axioms (using a modified Vampire)
+  # assert(0 in thax_sign and (len(thax_sign) == 1 or len(thax_sign) == 2 and -1 in thax_sign))
   
   new_prob_data_list = []
   
