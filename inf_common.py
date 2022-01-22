@@ -47,10 +47,11 @@ def logname_to_probname(logname):
     return "small_np/"+logname[72:-4]
   elif logname.endswith(".smt2.log"):
     return logname[:-4]
-  elif logname.endswith("1_m.log"): # jinja
-    return logname[:-4]
-  else:
-    assert(False)
+  else: # jinja
+    assert(logname.endswith(".log"))
+    spl = logname[:-4].split("_")
+    assert(spl[-1].startswith("m"))
+    return "_".join(spl[:-1]) # drop the m<something> part altogether, because why not?
 
 class Embed(torch.nn.Module):
   weight: Tensor
