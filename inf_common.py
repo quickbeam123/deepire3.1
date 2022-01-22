@@ -859,12 +859,6 @@ def prepare_signature(prob_data_list):
       thax_sign.add(thax)
       sine_sign.add(sine)
 
-    if HP.SWAPOUT > 0.0:
-      # make sure we have 0 - the default embedding ...
-      init_sign.add(0)
-      # ... and -1, the conjecture one (although no conjecture in smtlib!)
-      init_sign.add(-1)
-
     for id, features in deriv:
       # already abstracted
       rule = features
